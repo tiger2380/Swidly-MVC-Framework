@@ -69,8 +69,7 @@ class Router
 
         $paths = array_merge($newRoute, $tempPaths);
         $pathsOnly = array_keys($paths);
-
-        $pattern_regex = preg_replace("#\/?\:(\w+)#", '(?<$1>[\w._-]+)', $pathsOnly);
+        $pattern_regex = preg_replace("#\:(\w+)#", '(?<$1>[\w._-]+)', $pathsOnly);
 
         foreach($pattern_regex as $key => $pattern) {
             $pattern_regex = "#^". trim($pattern, "/") . "$#";

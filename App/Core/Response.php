@@ -10,6 +10,7 @@ class Response
     private $headers = [];
     private $messages = [];
     private $data = [];
+    private $content = '';
 
     public function addHeader($name, $value){
         $this->headers[$name][] = $value;
@@ -36,6 +37,10 @@ class Response
         exit();
     }
 
+    public function setContent(string $content) {
+        $this->content = $content;
+    }
+
     public function addData($name, $data) {
         $this->data[$name] = $data;
     }
@@ -49,7 +54,11 @@ class Response
     }
 
     public function content() {
-        
+        foreach($this->headers as $header){
+			header($header,true);
+		};
+
+        echo $this->content;
     }
 
     public function json() {
