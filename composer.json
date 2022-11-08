@@ -1,0 +1,14 @@
+{
+    "name": "MVC Skelton",
+    "autoload": {
+        "psr-4": {
+            "App\\Core\\": "App"
+        }
+    },
+    "authors": [
+        {
+            "name": "Thaddeus Bibbs",
+            "email": "tiger2380@gmail.com"
+        }
+    ]
+}
