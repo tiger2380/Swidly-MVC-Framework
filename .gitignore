@@ -197,6 +197,7 @@ sdist/
 develop-eggs/
 .installed.cfg
 vendor/
+.ideal/
 
 # Installer logs
 pip-log.txt
