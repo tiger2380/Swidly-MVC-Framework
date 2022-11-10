@@ -3,14 +3,18 @@
 /**
  * Created a route for the API
  */
-$this->get('/api/json_data/?:id', function($req, $res) {
-    $res->setContent('<h1>The ID is '. $req->get('id') .'</h1>');
-    $res->content();
-})->registerMiddleware(function($req, $res){
-    if ($req->get('id') >= 5) {
-        $req->set('id', 5);
-    }
-});
 
-$this->get('/?:person_name', 'HomeController::Index')
+$this->get('/post/:id', 'PostController::Index')
+->registerMiddleware(function($request, $response) {
+    if(!$request->is_authenticated) {
+        $response->setContent('You can not view this post');
+        $response->content();
+        exit;
+    }
+})
+->name('post');
+
+$this->get('/login', 'LoginController::Login')->name('login');
+
+$this->get('/', 'HomeController::Index')
 ->name('home');

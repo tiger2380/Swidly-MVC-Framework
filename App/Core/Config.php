@@ -15,6 +15,10 @@ return [
         'collation' => 'utf8mb4_unicode_ci',
         'prefix' => '',
     ],
+    'user' => [
+        'table' => 'users',
+        'auth_field' => 'email'
+    ],
     'url' => '',
     'DEVELOPMENT_ENVIRONMENT' => true,
     'session_name' => 'default_session'

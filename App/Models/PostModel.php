@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Model;
+use App\Core\Model;
 
 class ExampleoModel extends Model {
-    protected $table = 'table';
+    protected $table = 'dashboard';
     protected $idField = 'id';
 }

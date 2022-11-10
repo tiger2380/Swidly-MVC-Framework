@@ -14,12 +14,16 @@ class Response
 
     public function addHeader($name, $value){
         $this->headers[$name][] = $value;
+
+        return $this;
     }
 
     public function setHeader($name, $value){
         $this->headers[$name] = [
             (string) $value,
         ];
+
+        return $this;
     }
 
     public function redirect($url, $referrer = null){
@@ -39,18 +43,26 @@ class Response
 
     public function setContent(string $content) {
         $this->content = $content;
+
+        return $this;
     }
 
     public function addData($name, $data) {
         $this->data[$name] = $data;
+
+        return $this;
     }
 
     public function addMessage($subject, $message) {
         $this->messages[$subject] = $message;
+
+        return $this;
     }
 
     public function setStatus(int $code) {
         $this->statusCode = $code;
+
+        return $this;
     }
 
     public function content() {

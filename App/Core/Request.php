@@ -21,7 +21,6 @@ class Request
         $this->request = array_merge($_GET, $_POST, $_COOKIE, $_FILES, $decoded, $_SERVER, $_SESSION);
         $this->server = $_SERVER;
         $this->CheckAuthentication();
-        $this->getUser();
     }
 
     public function set($key, $value) {
@@ -33,12 +32,13 @@ class Request
     }
 
     protected function getUser() {
+        $response = null;
         if($this->is_authenticated) {
-            $user = DB::Table('users')->Select()->WhereOnce(['email' => Store::get(App::getConfig('session_name'))]);
-            $this->vars['user'] = (object)$user;
-        } else {
-            $this->vars['user'] = null;
+            $user = DB::Table(App::getConfig('user::table'))->Select()->WhereOnce([App::getConfig('user::auth_field') => Store::get(App::getConfig('session_name'))]);
+            $response = (object)$user;
         }
+
+        return $response;
     }
 
     public function getUri()

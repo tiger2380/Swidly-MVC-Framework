@@ -5,7 +5,10 @@
 
     class HomeController extends Controller {
         function Index($req, $res) {
-            \App\Core\App::getConfig('db');
-           $this->render('home', ['person_name' => $req->get('person_name')]);
+           $this->render('home', 
+            [
+                'name' => $req->get('name'),
+                'data' => ['age' => 24, 'sex' => 'male', 'birthday' => '01/25/1998']
+            ]);
         }
     }
