@@ -13,7 +13,7 @@ if(file_exists(BASENAME.'/helpers.php')) {
 class App {
     public static array $middlewares = [];
     public static array $routeNames = [];
-    public static array $settings = [];
+    public static ?array $config = null;
     protected ?string $next = null;
 
     public function __construct(
@@ -120,12 +120,12 @@ class App {
     }
     
     static function getConfig(string $name, string $default = ''): string {
-        if(!isset(App::$settings)) {
-            App::$settings = require_once('./Settings.php');
+        if(!isset(App::$config)) {
+            App::$config = require_once('Config.php');
         }
         
-        if(array_key_exists($name, App::$settings) && !empty(App::$settings[$name])) {
-            return App::$settings[$name];
+        if(array_key_exists($name, App::$config) && !empty(App::$config[$name])) {
+            return App::$config[$name];
         } else {
             return $default;
         }

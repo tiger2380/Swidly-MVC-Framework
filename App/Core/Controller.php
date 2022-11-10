@@ -64,7 +64,7 @@ class Controller
 
         $default_lang = (new Request())->get('lang', App::getConfig('default_lang'));
         
-        $lang_path = __DIR__."/lang/{$default_lang}.json";
+        $lang_path = __DIR__."/..//lang/{$default_lang}.json";
         $string = file_get_contents($lang_path);
         $lang = json_decode($string, true);
 

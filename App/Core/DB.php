@@ -2,11 +2,11 @@
 namespace App\Core;
 global $app;
 
-$servername = App::getconfig('db')['host'];
-$dbname = App::getconfig('db')['database'];
-$username = App::getconfig('db')['username'];
-$password = App::getconfig('db')['password'];
-$charset = App::getConfig('db')['charset'];
+$servername = App::getconfig('DB::host');
+$dbname = App::getconfig('DB::database');
+$username = App::getconfig('DB::username');
+$password = App::getconfig('DB::password');
+$charset = App::getConfig('DB::charset');
 
 define('DB_HOST', $servername);
 define('DB_NAME', $dbname);
