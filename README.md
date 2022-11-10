@@ -116,6 +116,8 @@ You must set the `$table` property of the model. The `$idField` is optional.
 You can then get data from the database in the controller like so:
 ```php
 $this->model->findAll();
+//or
+$this->model->findBy(['post_id' => '123']);
 ```
 
 This is example how to insert new data into the database
