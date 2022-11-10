@@ -79,3 +79,22 @@ function load_default_theme() {
 
     return $default_theme;
 }
+
+function parseArray(array $original_array, $prefix = null): array {
+    $parsedArray = [];
+
+    foreach ($original_array as $key => $value) {
+        if (is_array($value)) {
+            $_prefix = isset($prefix) ? $prefix.'::' : '';
+            $parsedArray = array_merge($parsedArray, parseArray($value, $_prefix.$key));
+        } else {
+            if(isset($prefix)) {
+                $parsedArray[$prefix.'::'.$key] = $value;
+            } else {
+                $parsedArray[$key] = $value;
+            }
+        }
+    }
+
+    return $parsedArray;
+}

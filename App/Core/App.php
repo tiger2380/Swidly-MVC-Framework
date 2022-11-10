@@ -121,7 +121,7 @@ class App {
     
     static function getConfig(string $name, string $default = ''): string {
         if(!isset(App::$config)) {
-            App::$config = require_once('Config.php');
+            App::$config = parseArray(require_once('Config.php'));
         }
         
         if(array_key_exists($name, App::$config) && !empty(App::$config[$name])) {
