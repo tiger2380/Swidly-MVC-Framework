@@ -1,4 +1,4 @@
-# Welcome to the smallest and simplest PHP MVC Framework
+# Welcome to the simple PHP MVC Framework
 
 This is a small, simple yet powerful PHP MVC Framework built with PHP. No installation/composer require. Oh yeah, it's free!! 😊
 
