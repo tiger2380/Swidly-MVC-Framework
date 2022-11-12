@@ -3,7 +3,7 @@ use \App\App;
 
 function dump($input, $stop = false) {
     echo '<pre style="display: inline-block; background: rgba(0,0,0,0.8); color: white; padding: 1.4rem;">';
-    var_dump($input);
+    print_r($input);
     echo '</pre><br/>';
     
     if($stop) {

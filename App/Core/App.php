@@ -1,6 +1,8 @@
 <?php
 namespace App\Core;
 
+use App\Core\Attributes\Route;
+
 define('BASENAME', dirname(__FILE__));
 
 if(file_exists(BASENAME.'/helpers.php')) {
@@ -67,6 +69,33 @@ class App {
         return $this;
     }
 
+    public  function addRoute($method, $path, $callback, $routeName = null) {
+        $this->router->routes[strtolower($method)][$path] = $callback;
+
+        if (isset($routeName)) {
+            $this->next = $path;
+            $this->name($routeName);
+        }
+    }
+
+    public  function registerRoutes(\ReflectionClass $reflectionClass)
+    {
+        $className = $reflectionClass->getName();
+        $methods = $reflectionClass->getMethods();
+
+        foreach ($methods as $method) {
+            $attributes = $method->getAttributes(Route::class);
+
+            foreach ($attributes as $attribute) {
+                $instance = $attribute->newInstance();
+                $path = $instance->path;
+                $name = $instance->name ?? null;
+
+                $this->addRoute($instance->method, $path, $className.'::'.$method->getName(), $name);
+            }
+        }
+    }
+
     public function run(): void {
         if(file_exists(BASENAME.'/../routes.php')) {
             require_once BASENAME . '/../routes.php';
@@ -75,8 +104,21 @@ class App {
             exit();
         }
 
+        $this->loadControllerRoutes();
+
         $this->router->run();
     }
+
+    public function loadControllerRoutes() {
+        $controllers = array_diff(scandir(BASENAME.'/../Controllers/'), array('.', '..'));
+        $controllerFilenames = array_map(fn($controller) => pathinfo($controller)['filename'], $controllers);
+
+        foreach ($controllerFilenames as $controller) {
+            $class = '\App\Controllers\\'.$controller;
+            $this->registerRoutes(new \ReflectionClass($class));
+        }
+    }
+
 
     static function activeLink($page = null): void {
         $result = '';
@@ -109,11 +151,12 @@ class App {
         }
 
         if(array_key_exists($name, App::$routeNames)) {
-            $route = preg_replace('/\??{\w+}/', '', App::$routeNames[$name]);
+            $route = preg_replace('/\??:\w+/', '', App::$routeNames[$name]);
+
             if(strlen($route) > 1) {
                 $route = rtrim($route, '/');
             }
-            return App::getConfig('url') .$add_params;
+            return App::getConfig('url') . $route . $add_params;
         } else {
             return '';
         }

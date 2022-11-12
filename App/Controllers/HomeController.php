@@ -2,8 +2,11 @@
     namespace App\Controllers;
 
     use App\Core\Controller;
+    use App\Core\Attributes\Route;
 
     class HomeController extends Controller {
+
+        #[Route('GET', '/')]
         function Index($req, $res) {
            $this->render('home', 
             [

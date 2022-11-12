@@ -2,6 +2,9 @@
 
 namespace App\Core;
 
+use ReflectionClass;
+use App\Core\Attributes\Route;
+
 class Router
 {
     protected $GET = [];
@@ -9,7 +12,7 @@ class Router
     protected $DELETE = [];
     protected $PULL = [];
     protected $UPDATE = [];
-    private $routes = [];
+    public $routes = [];
 
     public function __construct(
         private Request $request = new Request, 
@@ -98,7 +101,7 @@ class Router
                 } else if (is_string($callback)) {
                     if(strstr($callback, '::')) {
                         list($controller, $method) = explode('::', $callback);
-                        $className = '\App\Controllers\\'.$controller;
+                        $className = $controller;
                         $class = new $className();
                         if(class_exists($className)) {
                             call_user_func_array(array($class, $method), array(&$this->request, &$this->response));
@@ -120,8 +123,7 @@ class Router
             $this->map();
         } catch (\App\Core\AppException $ex) {
             Response::setStatusCode($ex->getCode());
-            print($ex->getMessage());
-            exit();
+            dump($ex->getMessage(), true);
         }
     }
 }
