@@ -9,16 +9,16 @@ class PostModel extends Model {
     protected $table = 'post';
     protected $idField = 'id';
 
-    #[Column('integer')]
+    #[Column()]
     public int $id;
 
-    #[Column('title')]
+    #[Column()]
     private ?string $title = null;
 
-    #[Column('DateTime')]
+    #[Column()]
     private string $createdAt;
 
-    #[Column('string')]
+    #[Column()]
     private string $body;
 
     public function getId(): int {

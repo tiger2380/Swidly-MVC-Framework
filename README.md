@@ -44,7 +44,7 @@ $this->get('/post/?:id', function($request, $response) {
 
 Add a middleware with your request.
 
-A middleware is an action that can occur before the request is sent to the controller. You can validate a request, change a parameter in a request or make sure  a user is logged in before continue a request.
+A middleware is an action that can occur before the request is sent to the controller. You can validate a request, change a parameter in a request or make sure a user is logged in before continue a request.
 ```php
 $this->get('/post/:id', function($request, $response) {
     $id = $request->get('id');
@@ -82,6 +82,21 @@ $this->get('/post/:id', function($request, $response) {
 });
 ```
 
+Routes can also be create in a controller using attributes
+`#[Route('{method]}', '{path}', '{route name}optional')]`
+```php
+class PostController extends Controller {
+
+    #[Route('GET', '/posts')]
+    function Index($req, $res) {
+        $posts = $this->model->findAll();
+        $this->render('post', ['posts' => $posts]);
+    }
+
+    ....
+}
+```
+
 ## Middlewares
 Middlewares can be stored in the [App/Middleware](App/Middleware) directory
 
@@ -111,16 +126,54 @@ You can also use the render function in views
 ## Models
 Models are used to get and store data in your application. They know nothing about how this data is to be presented in the views. Models extend the `App\Core\Model` class and use [PDO](http://php.net/manual/en/book.pdo.php) to access the database. They're stored in the `App/Models` folder. A sample post model class is included in [App/Models/PostModel.php](App/Models/PostModel.php). 
 
-You must set the `$table` property of the model. The `$idField` is optional.
+You must set the `$table` property of the model. The `$idField` is also required.
+
+In the modal, you have to tell the modal the what is an column in the table by using the `Column` attribute
+```php
+#[Column()]
+private ?string $title = null;
+```
+
+The Id column is require
+```php
+#[Column()]
+public int $id;
+```
+
+There must be a getter/setter for that column in your model:
+```php
+public function getTitle(): string {
+    return $this->title;
+}
+
+public function setTitle(string $title): self {
+    $this->title = $title;
+
+    return $this;
+}
+```
 
 You can then get data from the database in the controller like so:
 ```php
 $this->model->findAll();
 //or
-$this->model->findBy(['post_id' => '123']);
+$this->model->findBy(['id' => '123']);
 ```
 
 This is example how to insert new data into the database
 ```php
 \App\Core\DB::Table('posts')->Insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
+```
+
+Insert or update data using an entity for example `PostModal`.
+```php
+#[Route('POST', '/posts/add', 'addPost')]
+function AddPost($req, $res) {
+    $post = new PostModel();
+    $post->setTitle($req->get('title'));
+    $post->setBody($req->get('content'));
+    $post->setCreatedAt('2022-11-11 02:46:00');
+
+    $post->save();
+}
 ```
