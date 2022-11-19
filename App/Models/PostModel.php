@@ -6,7 +6,7 @@ use App\Core\Model;
 use App\Core\Attributes\Table;
 use App\Core\Attributes\Column;
 
-#[Table(name: 'Posts')]
+#[Table(name: 'post')]
 class PostModel extends Model {
     protected $table = 'post';
     protected $idField = 'id';
