@@ -31,8 +31,11 @@
             $this->render('single', ['post' => $post]);
         }
 
-        #[Route('GET', '/posts/example')]
-        function ExampleRoute($req, $res) {
-            echo 'test';
+        #[Route(methods: ['POST'], path: '/posts/update', name: 'updatePost')]
+        function UpdatePost($req, $res) {
+            $postModel = $this->model->find(['id' => 2]);
+            $postModel->setTitle($req->get('title'));
+
+            $postModel->save();
         }
     }

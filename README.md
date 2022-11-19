@@ -165,7 +165,7 @@ This is example how to insert new data into the database
 \App\Core\DB::Table('posts')->Insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
 ```
 
-Insert or update data using an entity for example `PostModal`.
+Insert data using an entity for example `PostModal`.
 ```php
 #[Route('POST', '/posts/add', 'addPost')]
 function AddPost($req, $res) {
@@ -175,5 +175,16 @@ function AddPost($req, $res) {
     $post->setCreatedAt('2022-11-11 02:46:00');
 
     $post->save();
+}
+```
+
+Update data
+```php
+#[Route(methods: ['POST'], path: '/posts/update', name: 'updatePost')]
+function UpdatePost($req, $res) {
+    $postModel = $this->model->find(['id' => 2]);
+    $postModel->setTitle($req->get('title'));
+
+    $postModel->save();
 }
 ```
