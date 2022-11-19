@@ -13,7 +13,7 @@
             $this->render('post', ['posts' => $posts]);
         }
 
-        #[Route('POST', '/posts/add', 'addPost')]
+        #[Route(methods: ['POST'], path: '/posts/add', name: 'addPost')]
         function AddPost($req, $res) {
             $post = new PostModel();
             $post->setTitle($req->get('title'));
@@ -23,7 +23,7 @@
             $post->save();
         }
 
-        #[Route('GET', '/post/:id', 'viewPost')]
+        #[Route(methods: ['GET'], path: '/post/:id', name: 'viewPost')]
         function ViewSingle($req, $res) {
             $id = $req->get('id');
             $post = $this->model->find(['id' => $id]);
@@ -31,7 +31,7 @@
             $this->render('single', ['post' => $post]);
         }
 
-        #[Route('GET', '/postss')]
+        #[Route('GET', '/posts/example')]
         function ExampleRoute($req, $res) {
             echo 'test';
         }

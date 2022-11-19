@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace App\Core;
 
 use App\Core\Attributes\Route;
@@ -69,16 +71,34 @@ class App {
         return $this;
     }
 
-    public  function addRoute($method, $path, $callback, $routeName = null) {
-        $this->router->routes[strtolower($method)][$path] = $callback;
+    public  function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void {
+        if (is_array($methods)) {
+            foreach ($methods as $method) {
+                if (is_array($paths)) {
+                    foreach ($paths as $path) {
+                        $this->router->routes[strtolower($method)][$path] = $callback;
+                    }
+                } else {
+                    $this->router->routes[strtolower($method)][$paths] = $callback;
+                }
+            }
+        } else {
+            if (is_array($paths)) {
+                foreach ($paths as $path) {
+                    $this->router->routes[strtolower($methods)][$path] = $callback;
+                }
+            } else {
+                $this->router->routes[strtolower($methods)][$paths] = $callback;
+            }
+        }
 
         if (isset($routeName)) {
-            $this->next = $path;
+            $this->next = $paths;
             $this->name($routeName);
         }
     }
 
-    public  function registerRoutes(\ReflectionClass $reflectionClass)
+    public function registerRoutes(\ReflectionClass $reflectionClass)
     {
         $className = $reflectionClass->getName();
         $methods = $reflectionClass->getMethods();
@@ -88,10 +108,11 @@ class App {
 
             foreach ($attributes as $attribute) {
                 $instance = $attribute->newInstance();
+                $methods = $instance->methods;
                 $path = $instance->path;
                 $name = $instance->name ?? null;
 
-                $this->addRoute($instance->method, $path, $className.'::'.$method->getName(), $name);
+                $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
             }
         }
     }

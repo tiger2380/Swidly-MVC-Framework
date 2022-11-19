@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Core\Attributes;
 
-#[\Attribute]
+#[\Attribute(\Attribute::IS_REPEATABLE | \Attribute::TARGET_METHOD | \Attribute::TARGET_CLASS)]
 class Route {
-    public function __construct(public string $method, public string $path, public ?string $name = null)
-    {
-        
-    }
+    public function __construct(
+        public array|string $methods, 
+        public array|string $path, 
+        public ?string $name = null)
+    {}
 }

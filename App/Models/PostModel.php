@@ -3,22 +3,24 @@
 namespace App\Models;
 
 use App\Core\Model;
-use App\Core\Column;
+use App\Core\Attributes\Table;
+use App\Core\Attributes\Column;
 
+#[Table(name: 'Posts')]
 class PostModel extends Model {
     protected $table = 'post';
     protected $idField = 'id';
 
-    #[Column()]
+    #[Column(isPrimary: true)]
     public int $id;
 
-    #[Column()]
+    #[Column(type: 'string', length: 50)]
     private ?string $title = null;
 
-    #[Column()]
+    #[Column(type: 'datetime')]
     private string $createdAt;
 
-    #[Column()]
+    #[Column(type: 'string')]
     private string $body;
 
     public function getId(): int {

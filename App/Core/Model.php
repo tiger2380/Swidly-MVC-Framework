@@ -4,15 +4,6 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-use Attribute;
-
-#[Attribute(Attribute::TARGET_CLASS_CONSTANT|Attribute::TARGET_PROPERTY)]
-class Column {
-    function __construct(
-        private ?string $name = null
-    ){}
-}
-
 class Model {
     public $db;
     public $app;

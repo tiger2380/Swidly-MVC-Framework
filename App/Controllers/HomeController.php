@@ -6,7 +6,7 @@
 
     class HomeController extends Controller {
 
-        #[Route('GET', '/')]
+        #[Route(methods: ['GET'], path: ['/', '/home'])]
         function Index($req, $res) {
            $this->render('home', 
             [

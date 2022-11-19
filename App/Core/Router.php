@@ -2,9 +2,6 @@
 
 namespace App\Core;
 
-use ReflectionClass;
-use App\Core\Attributes\Route;
-
 class Router
 {
     protected $GET = [];
@@ -43,6 +40,10 @@ class Router
     public function update($pattern, $callback) {
         $this->routes['update'][$pattern] = $callback;
         return $this;
+    }
+
+    public function getRoutes() {
+        dump($this->routes);
     }
 
     protected function map() {
@@ -109,13 +110,13 @@ class Router
                         }
                     }
                 } else {
-                    throw new \App\Core\AppException(404, 'Unknown callable.');
+                    throw new \App\Core\AppException('Unknown callable.', 400);
                 }
                 exit();
             }
         }
 
-        throw new \App\Core\AppException(404, 'Unknown page.');
+        throw new \App\Core\AppException('Unknown page.', 404);
     }
 
     public function run() {
