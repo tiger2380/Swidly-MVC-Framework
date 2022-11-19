@@ -165,7 +165,7 @@ This is example how to insert new data into the database
 \App\Core\DB::Table('posts')->Insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
 ```
 
-Insert data using an entity for example `PostModal`.
+Insert data using an entity for example `PostModel`.
 ```php
 #[Route('POST', '/posts/add', 'addPost')]
 function AddPost($req, $res) {
