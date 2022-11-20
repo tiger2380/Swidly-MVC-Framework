@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Core\Attributes\Middleware;
 use App\Core\Attributes\Route;
 
 define('BASENAME', dirname(__FILE__));
@@ -113,6 +114,28 @@ class App {
                 $name = $instance->name ?? null;
 
                 $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
+                $this->registerMiddlewares($method, $path);
+            }
+        }
+    }
+
+    public function registerMiddlewares($method, $paths) {
+        $attributes = $method->getAttributes(Middleware::class);
+        
+        if(\count($attributes) > 0) {
+            foreach ($attributes as $attribute) {
+                $instance = $attribute->newInstance();
+                $callback = $instance->callback;
+
+                if (is_array($paths)) {
+                    foreach ($paths as $path) {
+                        $this->next = $path;
+                        $this->registerMiddleware($callback);
+                    }
+                } else {
+                    $this->next = $paths;
+                    $this->registerMiddleware($callback);
+                }
             }
         }
     }

@@ -91,7 +91,7 @@ class Router
                         if (is_callable($middleware)) {
                             call_user_func_array($middleware, array(&$this->request, &$this->response));
                         } else {
-                            $middleware->execute($this->request, $this->response);
+                            (new $middleware)->execute($this->request, $this->response);
                         }
                     }
                 }

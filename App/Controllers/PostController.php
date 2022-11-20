@@ -1,13 +1,16 @@
 <?php
     namespace App\Controllers;
 
-    use App\Core\Controller;
+use App\Core\Attributes\Middleware;
+use App\Core\Controller;
     use App\Models\PostModel;
     use App\Core\Attributes\Route;
+use App\Middleware\AuthMiddleware;
 
     class PostController extends Controller {
 
         #[Route('GET', '/posts')]
+        #[Middleware(AuthMiddleware::class)]
         function Index($req, $res) {
             $posts = $this->model->findAll();
             $this->render('post', ['posts' => $posts]);

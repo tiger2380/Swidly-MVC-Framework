@@ -82,12 +82,14 @@ $this->get('/post/:id', function($request, $response) {
 });
 ```
 
-Routes can also be create in a controller using attributes
+Routes can also be create in a controller using attributes.
+You can also add a middleware to your route.
 `#[Route('{method]}', '{path}', '{route name}optional')]`
 ```php
 class PostController extends Controller {
 
     #[Route('GET', '/posts')]
+    #[Middleware(AuthMiddleware::class)]
     function Index($req, $res) {
         $posts = $this->model->findAll();
         $this->render('post', ['posts' => $posts]);
