@@ -12,7 +12,6 @@ use App\Middleware\AuthMiddleware;
 class HomeController extends Controller {
 
     #[Route(methods: ['GET'], path: ['/', '/home'])]
-    #[Middleware(AuthMiddleware::class)]
     function Index($req, $res) {
         $this->render('home', 
         [
