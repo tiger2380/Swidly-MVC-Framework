@@ -3,7 +3,7 @@
 This is a small, simple yet powerful PHP MVC Framework built with PHP. No installation/composer require. Oh yeah, it's free!! 😊
 
 1. First, download the framework by downloading the zip or cloning the repo.
-1. Run composer... oh right, no composer requires!
+1. Run composer... oh right, no composer installation is required!
 1. That's it. To configure, Open [App/Core/Config.php](App/Core/Config.php) and fill out your server information
 1. Create routes, add controllers, views, models.
 1. Also supported, templating and multi-language. You can edit the file at: [App/lang/en.json](App/lang/en.json)
