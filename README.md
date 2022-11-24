@@ -8,7 +8,8 @@ Steps to implement this MVC on your server:
 1. Run composer... oh right, no composer installation is required!
 1. That's it. To configure, Open [App/Core/Config.php](App/Core/Config.php) and fill out your server information
 1. Create routes, controllers, views, and models.
-1. Also supported, templating and multi-language. You can edit the file at: [App/lang/en.json](App/lang/en.json)
+
+Also supported, templating and multi-language. You can edit the file at: [App/lang/en.json](App/lang/en.json). Wrap the word/phrase with {} and the templating system will handle the rest. 
 
 You can start the app by using php built-in server by typing:
 ```terminal
