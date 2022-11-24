@@ -190,3 +190,43 @@ function UpdatePost($req, $res) {
     $postModel->save();
 }
 ```
+
+## Single Page Support
+Support single page with ease
+
+To enable single page support, just add a `<div id="app"></div>` to the index page of the theme and added the single page script: `<?= \App\Core\App::load_single_page(); ?>`
+
+Please see below:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Page Theme</title>
+</head>
+<body>
+    <a href="/posts" data-sp-link>Posts</a>
+    <div id="app"></div>
+
+    <?= \App\Core\App::load_single_page(); ?>
+</body>
+</html>
+```
+
+To view the demo, switch to the `single_page` theme and set `single_page` to TRUe in the configuration file:
+```php
+return [
+    'app' => [
+        'title' =>'',
+        ...
+        'single_page' => true
+    ],
+    'default_lang' => 'en',
+    'theme' => 'single_page',
+    ....
+]
+```
+
+That's it. No download or installation.
