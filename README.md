@@ -1,12 +1,20 @@
-# Welcome to the simple PHP MVC Framework
+# Welcome to 'Not Another' PHP MVC Framework
 
-This is a small, simple yet powerful PHP MVC Framework built with PHP. No installation/composer require. Oh yeah, it's free!! 😊
+This is a small, simple yet powerful PHP MVC Framework built with vanilla PHP using no frameworks. My goal is to make a self-contain MVC that doesn't depend on any 3rd parties. No installation/composer require. I'm trying my best to lower the learning curve when it comes to MVC. 
 
-1. First, download the framework by downloading the zip or cloning the repo.
+Steps to implement this MVC on your server:
+
+1. First, get the code by downloading the zip or cloning the repo.
 1. Run composer... oh right, no composer installation is required!
 1. That's it. To configure, Open [App/Core/Config.php](App/Core/Config.php) and fill out your server information
 1. Create routes, controllers, views, and models.
 1. Also supported, templating and multi-language. You can edit the file at: [App/lang/en.json](App/lang/en.json)
+
+You can start the app by using php built-in server by typing:
+```terminal
+php -S localhost:8000
+```
+and then avigate to `localhost:8000` in your browser.
 
 ## Configuration
 The configuration settings are stored under [App/Core/Config.php](App/Core/Config.php)
@@ -228,5 +236,7 @@ return [
     ....
 ]
 ```
+
+Add the `data-sp-link` attribute to any buttons/links that will require navigation using the single page functionality.
 
 That's it. No download or installation.
