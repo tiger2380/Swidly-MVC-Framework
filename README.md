@@ -26,7 +26,7 @@ $this->get('', 'HomeController::Index')->name('home');
 $this->post('posts/blog', 'BlogController::AddPost');
 ```
 
-You can also created a route without a controller:
+You can also create a route without a controller:
 ```php
 $this->get('/post/:id', function($request, $response) {
     $id = $request->get('id');
@@ -34,7 +34,7 @@ $this->get('/post/:id', function($request, $response) {
     echo 'The post id is: '. $id;
 });
 
-// or a optional paramter
+// or a optional parameter
 $this->get('/post/?:id', function($request, $response) {
     $id = $request->get('id', '0');
 
@@ -82,8 +82,8 @@ $this->get('/post/:id', function($request, $response) {
 });
 ```
 
-Routes can also be create in a controller using attributes.
-You can also add a middleware to your route.
+Routes can also be created in a controller using attributes.
+You can also add a middleware to your routes.
 `#[Route('{method]}', '{path}', '{route name}optional')]`
 ```php
 class PostController extends Controller {
@@ -215,7 +215,7 @@ Please see below:
 </html>
 ```
 
-To view the demo, switch to the `single_page` theme and set `single_page` to TRUe in the configuration file:
+To view the demo, switch to the `single_page` theme and set `single_page` to true in the configuration file:
 ```php
 return [
     'app' => [
