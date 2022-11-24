@@ -5,7 +5,7 @@ This is a small, simple yet powerful PHP MVC Framework built with PHP. No instal
 1. First, download the framework by downloading the zip or cloning the repo.
 1. Run composer... oh right, no composer installation is required!
 1. That's it. To configure, Open [App/Core/Config.php](App/Core/Config.php) and fill out your server information
-1. Create routes, add controllers, views, models.
+1. Create routes, controllers, views, and models.
 1. Also supported, templating and multi-language. You can edit the file at: [App/lang/en.json](App/lang/en.json)
 
 ## Configuration
@@ -14,9 +14,9 @@ You can access the settings in your code by: `App::getConfig('db::host')`. You c
 
 ## Routing
 
-The [Router](App/Core/Router.php) translates URLs into controllers and actions. Routes are added in the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](App/Controllers/HomeController.php).
+The [Router](App/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](App/Controllers/HomeController.php).
 
-Routes are location in the [App/routes.php](App/routes.php) file
+Routes are located in the [App/routes.php](App/routes.php) file
 
 To add a route, you can do it like so: `$this->get('{path}', '{controller}::{action}')` method. 
 
@@ -44,7 +44,7 @@ $this->get('/post/?:id', function($request, $response) {
 
 Add a middleware with your request.
 
-A middleware is an action that can occur before the request is sent to the controller. You can validate a request, change a parameter in a request or make sure a user is logged in before continue a request.
+Middleware is an action that can occur before the request is sent to the controller. You can validate a request, change a parameter in a request or make sure a user is logged in before continuing a request.
 ```php
 $this->get('/post/:id', function($request, $response) {
     $id = $request->get('id');
@@ -83,7 +83,7 @@ $this->get('/post/:id', function($request, $response) {
 ```
 
 Routes can also be created in a controller using attributes.
-You can also add a middleware to your routes.
+You can also add middleware to your routes.
 `#[Route('{method]}', '{path}', '{route name}optional')]`
 ```php
 class PostController extends Controller {
@@ -105,7 +105,7 @@ Middlewares can be stored in the [App/Middleware](App/Middleware) directory
 ## Controllers
 Controllers respond to user actions (clicking on a link, submitting a form etc.). Controllers are classes that extend the [App\Core\Controller](App/Core/Controller.php) class.
 
-Controllers are stored in the `App/Controllers` folder. A sample [Home controller](App/Controllers/HomeController.php) included. Controller classes need to be in the `App/Controllers` namespace. You can add subdirectories to organise your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
+Controllers are stored in the `App/Controllers` folder. A sample [Home controller](App/Controllers/HomeController.php) is included. Controller classes need to be in the `App/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
 
 Controller classes contain methods that are the actions. To create an action, add the **`Action`** suffix to the method name. The sample controller in [App/Controllers/HomeController.php](App/Controllers/HomeController.php) has a sample `index` action.
 
