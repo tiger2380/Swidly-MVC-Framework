@@ -10,7 +10,6 @@ use App\Middleware\AuthMiddleware;
     class PostController extends Controller {
 
         #[Route('GET', '/posts')]
-        #[Middleware(AuthMiddleware::class)]
         function Index($req, $res) {
             $posts = $this->model->findAll();
             $this->render('post', ['posts' => $posts]);
@@ -26,6 +25,7 @@ use App\Middleware\AuthMiddleware;
             $post->save();
         }
 
+        #[Middleware(AuthMiddleware::class)]
         #[Route(methods: ['GET'], path: '/post/:id', name: 'viewPost')]
         function ViewSingle($req, $res) {
             $id = $req->get('id');

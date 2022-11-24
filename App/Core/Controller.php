@@ -33,7 +33,7 @@ class Controller
         extract($data);
 
         if (!file_exists($page)) {
-            return;
+            throw new AppException('Page doesn\'t exists', 400);
         }
 
         foreach ($data as $key => $value) {
@@ -45,7 +45,13 @@ class Controller
         $content = ob_get_clean();
 
         $parsedContent = self::parse($content);
-        echo $parsedContent;
+        if(App::isSinglePage() && App::isRequestJson()) {
+            (new Response)->addData('content', $parsedContent)->json();
+        } else  {
+            if(!App::isSinglePage()) {
+                echo $parsedContent;
+            }
+        }
     }
 
     protected function parse($str = null)

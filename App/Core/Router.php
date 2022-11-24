@@ -127,4 +127,13 @@ class Router
             dump($ex->getMessage(), true);
         }
     }
+
+    public function run_single_page() {
+        try {
+            $basePath = App::themePath()['base'];
+            require_once $basePath.'/index.php';
+        } catch(\App\Core\AppException $ex) {
+
+        }
+    }
 }

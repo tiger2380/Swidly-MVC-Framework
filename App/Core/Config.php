@@ -1,11 +1,14 @@
 <?php
 
 return [
-    'app_title' => '',
-    'app_image' => '',
-    'app_description' => '',
+    'app' => [
+        'title' =>'',
+        'favicon' => '',
+        'description' => '',
+        'single_page' => true
+    ],
     'default_lang' => 'en',
-    'theme' => 'default',
+    'theme' => 'single_page',
     'db' => [
         'host'     => 'localhost',
         'database' => 'posts',

@@ -20,6 +20,7 @@ class App {
     public static array $routeNames = [];
     public static ?array $config = null;
     protected ?string $next = null;
+    protected bool $isSinglePage = false;
 
     public function __construct(
         private Container $container = new Container,
@@ -28,7 +29,9 @@ class App {
         protected Request $request = new Request,
         private Router $router = new Router,
     )
-    {}
+    {
+        $this->isSinglePage = self::getConfig('app::single_page', false);
+    }
 
     public function get($key, $value): self {
         $this->router->get($key, $value);
@@ -140,6 +143,14 @@ class App {
         }
     }
 
+    static public function isSinglePage() {
+        return App::getConfig('app::single_page', false) === true;
+    }
+
+    static public function isRequestJson() {
+        return (new Request)->get('HTTP_CONTENT_TYPE') === 'application/json';
+    }
+
     public function run(): void {
         if(file_exists(BASENAME.'/../routes.php')) {
             require_once BASENAME . '/../routes.php';
@@ -149,6 +160,10 @@ class App {
         }
 
         $this->loadControllerRoutes();
+
+        if(self::isSinglePage()) {
+            $this->router->run_single_page();
+        }
 
         $this->router->run();
     }
@@ -206,7 +221,7 @@ class App {
         }
     }
     
-    static function getConfig(string $name, string $default = ''): string {
+    static function getConfig(string $name, mixed $default = ''): mixed {
         if(!isset(App::$config)) {
             App::$config = parseArray(require_once('Config.php'));
         }
@@ -270,6 +285,17 @@ class App {
         }
         
         throw new \Exception('Unable to load module');
+    }
+
+    static function load_single_page() {
+        $core_js = BASENAME.'/scripts/app.js';
+        if(file_exists($core_js)) {
+            $core_js_path = '/App/Core/scripts/app.js';
+            echo '<script type="module" defer src="'.$core_js_path.'"></script>';
+            return;
+        }
+
+        throw new AppException('Unable to load core js', 400);
     }
 
     static function load_stylesheet_module($name) {
