@@ -194,7 +194,7 @@ function UpdatePost($req, $res) {
 ## Single Page Support (beta)
 Support single page with ease
 
-To enable single page support, just add a `<div id="app"></div>` to the index page of the theme and added the single page script: `<?= \App\Core\App::load_single_page(); ?>`
+To enable single page support, just add a `<div id="app"></div>` to the index file of the theme and added the single page script: `<?= \App\Core\App::load_single_page(); ?>`
 
 Please see below:
 ```html
