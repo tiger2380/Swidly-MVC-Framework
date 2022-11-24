@@ -69,12 +69,14 @@ class Controller
         global $app;
 
         $default_lang = (new Request())->get('lang', App::getConfig('default_lang'));
-        
-        $lang_path = __DIR__."/..//lang/{$default_lang}.json";
-        $string = file_get_contents($lang_path);
-        $lang = json_decode($string, true);
+        $lang_path = __DIR__."/../lang/{$default_lang}.json";
 
-        $this->lang = $lang;
+        if (file_exists($lang_path)) {
+            $string = file_get_contents($lang_path);
+            $lang = json_decode($string, true);
+
+            $this->lang = $lang;
+        }
     }
 
     public function __set($key, $value)
