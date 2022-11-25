@@ -124,7 +124,7 @@ class Router
             $this->map();
         } catch (\App\Core\AppException $ex) {
             Response::setStatusCode($ex->getCode());
-            dump($ex->getMessage(), true);
+            (new Controller())->render('404', ['message' => $ex->getMessage()]);
         }
     }
 
