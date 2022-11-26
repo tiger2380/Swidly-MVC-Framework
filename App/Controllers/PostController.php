@@ -12,7 +12,7 @@ use App\Middleware\AuthMiddleware;
         #[Route('GET', '/posts')]
         function Index($req, $res) {
             $posts = $this->model->findAll();
-            $this->render('post', ['posts' => $posts]);
+            $this->render('post', ['posts' => $posts, 'title' => 'Posts']);
         }
 
         #[Route(methods: ['POST'], path: '/posts/add', name: 'addPost')]

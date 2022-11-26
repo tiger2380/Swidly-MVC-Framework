@@ -17,4 +17,14 @@ class HomeController extends Controller {
             'data' => ['age' => 24, 'sex' => 'male', 'birthday' => '01/25/1998']
         ]);
     }
+
+    #[Route(methods: 'GET', path: '/about')]
+    function About($req, $res) {
+        $this->render('about', ['title' => 'About Page']);
+    }
+
+    #[Route(methods: 'GET', path: '/contact')]
+    function Contact($req, $res) {
+        $this->render('contact', ['title' => 'Contact Page']);
+    }
 }

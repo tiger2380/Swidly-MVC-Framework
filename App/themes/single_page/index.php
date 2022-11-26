@@ -7,7 +7,7 @@
     <title><?= App\Core\App::getConfig('app::title') ?></title>
 </head>
 <body>
-    <a href="/posts" data-sp-link>Posts</a>
+    <a href="/" data-sp-link>Home</a> | <a href="/posts" data-sp-link>Posts</a> | <a href="/about" data-sp-link>About</a> | <a href="/contact" data-sp-link>Contact</a> | 
 
     <?php if(App\Core\App::getConfig('app::single_page', false)): ?>
         <div id="app"></div>
