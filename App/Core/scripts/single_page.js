@@ -8,7 +8,8 @@ export default class SinglePage {
             },
             'onAfterFetch': () => {
                 console.log('after fetch');
-            }
+            },
+            'delimiter': '|',
         }
 
         this.settings = {...defaults, ...options};
@@ -28,6 +29,8 @@ export default class SinglePage {
         });
 
         this.#loadPage();
+
+        this.titleDelimiter = ' ' + this.settings.delimiter + ' ';
 
         this.on('beforeFetch', this.settings.onBeforeFetch);
         this.on('afterFetch', this.settings.onAfterFetch);
@@ -86,6 +89,14 @@ export default class SinglePage {
         
         const app = document.getElementById('app');
         app.innerHTML = jsonData.data.content;
+
+        if(jsonData.data.title) {
+            let currentTitle = this.#resetTitle();
+            
+            document.title = jsonData.data.title + this.titleDelimiter + currentTitle;
+        } else {
+            document.title = this.#resetTitle();
+        }
     
     
         Array.from(app.querySelectorAll('[data-sp-link]')).forEach((link => {
@@ -93,5 +104,20 @@ export default class SinglePage {
         }));
 
         this.emit('afterFetch');
+    }
+
+    #resetTitle() {
+        let currentTitle = document.title;
+        let delimiter = +currentTitle.lastIndexOf(this.titleDelimiter);
+
+        if (delimiter >= 0) {
+            currentTitle = currentTitle.slice(delimiter + 3, currentTitle.length);
+        }
+
+        return currentTitle;
+    }
+
+    #addPadding(string) {
+        return string.padStart(1, ' ').padEnd(1, ' ');
     }
 }

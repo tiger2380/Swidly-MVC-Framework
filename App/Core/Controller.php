@@ -46,7 +46,14 @@ class Controller
 
         $parsedContent = self::parse($content);
         if(App::isSinglePage() && App::isRequestJson()) {
-            (new Response)->addData('content', $parsedContent)->json();
+            $response = new Response();
+            $response->addData('content', $parsedContent);
+
+            if(array_key_exists('title', $data)) {
+                $response->addData('title', $data['title']);
+            }
+
+            $response->json();
         } else  {
             if(!App::isSinglePage()) {
                 echo $parsedContent;

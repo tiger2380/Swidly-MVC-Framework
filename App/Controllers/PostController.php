@@ -31,7 +31,7 @@ use App\Middleware\AuthMiddleware;
             $id = $req->get('id');
             $post = $this->model->find(['id' => $id]);
 
-            $this->render('single', ['post' => $post]);
+            $this->render('single', ['post' => $post, 'title' => $post->getTitle()]);
         }
 
         #[Route(methods: ['POST'], path: '/posts/update', name: 'updatePost')]

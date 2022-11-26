@@ -2,7 +2,7 @@
 
 return [
     'app' => [
-        'title' =>'',
+        'title' =>'Not Another PHP MVC',
         'favicon' => '',
         'description' => '',
         'single_page' => true
