@@ -1,5 +1,5 @@
 <h1>This is the post page</h1>
-<h4>Only authorized users can view this.</h4>
+<h4>Only authorized users can view posts.</h4>
 
 <form method="post" action="<?= App\Core\App::path('addPost') ?>">
     <legend>Title</legend>
