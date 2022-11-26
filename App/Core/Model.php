@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Core\Attributes\Column;
+
 class Model {
     public $db;
     public $app;
@@ -23,9 +25,10 @@ class Model {
     function find(array $criteria) {
         $result = DB::Table($this->table)->Select()->WhereOnce($criteria);
         $class = new $this->class();
+        $idField = $this->getColumnProperty( new \ReflectionClass($this))['idField'];
 
         foreach ($result as $column => $variable) {
-            if ($column === $this->idField) {
+            if ($column === $idField) {
                 $class->{$column} = $variable;
             } else {
                 if(method_exists($class, 'set'.ucfirst($column))) {
@@ -45,10 +48,12 @@ class Model {
         $result = DB::Table($this->table)->Select()->All();
         $results = [];
 
+        $idField = $this->getColumnProperty( new \ReflectionClass($this))['idField'];
+
         foreach ($result as $key => $value) {
             $class = new $this->class();
             foreach ($value as $column => $variable) {
-                if ($column === $this->idField) {
+                if ($column === $idField) {
                     $class->id = $variable;
                 } else {
                     if(method_exists($class, 'set'.ucfirst($column))) {
@@ -58,10 +63,10 @@ class Model {
                     }
                 }
             }
+            
+            $class->{'doUpdate'} = true;
             $results[] = $class;
         }
-
-        $class->{'doUpdate'} = true;
         
         return $results;
     }
@@ -69,31 +74,38 @@ class Model {
     function save() {
         $entity = $this->table;
         $data = [];
-        
-        $props = $this->getProperty( new \ReflectionClass($this));
+       
+        $props = $this->getColumnProperty( new \ReflectionClass($this));
+        $idField = $props['idField'];
+        unset($props['idField']);
 
         foreach ($props as $key => $prop) {
             $data[$key] = $this->{$prop}();
         }
 
-        if($data[$this->idField] === 0) {
+        if((int) $data[$idField] === 0) {
             DB::Table($entity)->Insert($data);
         } else {
-            DB::Table($entity)->Update($data)->WhereOnce([$this->idField => $data[$this->idField]]);
+            DB::Table($entity)->Update($data)->WhereOnce([$idField => $data[$this->idField]]);
         }
 
         return true;
     }
 
-    public  function getProperty(\ReflectionClass $reflectionClass)
+    public function getColumnProperty(\ReflectionClass $reflectionClass)
     {
         $data = [];
         $reflectionProperties = $reflectionClass->getProperties();
+
         foreach ($reflectionProperties as $reflectionProperty) {
             $attributes = $reflectionProperty->getAttributes(Column::class);
 
             foreach ($attributes as $attribute) {
                 $name = $reflectionProperty->getName() ?? '';
+                $instance = $attribute->newInstance();
+                if($instance->isPrimary) {
+                    $data['idField'] = $name;
+                }
                 $data[$name] = 'get'.ucfirst($name);
             }
         }

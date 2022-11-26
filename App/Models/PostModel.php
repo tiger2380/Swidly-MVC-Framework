@@ -5,22 +5,22 @@ namespace App\Models;
 use App\Core\Model;
 use App\Core\Attributes\Table;
 use App\Core\Attributes\Column;
+use App\Core\Enums\Types;
 
 #[Table(name: 'post')]
 class PostModel extends Model {
     protected $table = 'post';
-    protected $idField = 'id';
 
     #[Column(isPrimary: true)]
     public int $id;
 
-    #[Column(type: 'string', length: 50)]
+    #[Column(type: Types::STRING, length: 50)]
     private ?string $title = null;
 
-    #[Column(type: 'datetime')]
+    #[Column(type: Types::DATETIME)]
     private string $createdAt;
 
-    #[Column(type: 'string')]
+    #[Column(type: Types::STRING)]
     private string $body;
 
     public function getId(): int {
