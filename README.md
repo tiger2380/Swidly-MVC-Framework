@@ -203,7 +203,7 @@ function UpdatePost($req, $res) {
 ## Single Page Support (beta)
 Support single page with ease right out-of-the-box
 
-To enable single page support, just add a `<div id="app"></div>` to the index file of the theme and added the single page script: `<?= \App\Core\App::load_single_page(); ?>`
+To enable single page support, just add a `<div id="app"></div>` to the index file of the theme and load the single page script: `<?= \App\Core\App::load_single_page(); ?>`
 
 Please see below:
 ```html
@@ -213,13 +213,15 @@ Please see below:
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Single Page Theme</title>
+    <title><?= App\Core\App::getConfig('app::title') ?></title>
 </head>
 <body>
-    <a href="/posts" data-sp-link>Posts</a>
-    <div id="app"></div>
+    <a href="/" data-sp-link>Home</a> | <a href="/posts" data-sp-link>Posts</a> | <a href="/about" data-sp-link>About</a> | <a href="/contact" data-sp-link>Contact</a> | 
 
-    <?= \App\Core\App::load_single_page(); ?>
+    <?php if(App\Core\App::getConfig('app::single_page', false)): ?>
+        <div id="app"></div>
+        <?= \App\Core\App::load_single_page(); ?>
+    <?php endif; ?>
 </body>
 </html>
 ```
