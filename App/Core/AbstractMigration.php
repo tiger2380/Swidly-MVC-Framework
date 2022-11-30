@@ -1,6 +1,8 @@
 <?php
 
-namespace App;
+namespace App\Core;
+
+use App\Core\DB;
 
 abstract class AbstractMigration
 {

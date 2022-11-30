@@ -1,10 +1,11 @@
 #! /usr/bin/php
 <?php
 
-require_once './App/bin/formatPrint.php';
+require_once 'formatPrint.php';
+define('BASENAME', dirname(dirname(__FILE__)));
 
+require BASENAME.'/../../bootstrap.php';
 $routeStr = <<<STR
-
 
 \$this->get('%s%s', '%sController::Index')
 ->name('%s');
@@ -57,8 +58,13 @@ if(stripos($command, ':') > -1) {
             createController($name);
             formatPrintLn(['cyan', 'bold'], "Creating route..");
             file_put_contents($routeFile, $routeFormat, FILE_APPEND);
-        } else if ($action === 'migration') {
-            createMigration();
+        } else if ($method === 'migration') {
+            makeMigration();
+        } else if ($method === 'migrate') {
+            
+        } else {
+            formatPrintLn(['red', 'bold'], "Unknown command");
+            exit;
         }
     } 
 }
@@ -87,13 +93,15 @@ STR;
     }
 }
 
-function createMigration() {
+function makeMigration() {
 $migrationStr = <<<STR
     <?php
 
         declare(strict_types=1);
 
         namespace App\Migration;
+
+        use App\Core\AbstractMigration;
 
         final class Version%s extends AbstractMigration
         {
@@ -104,16 +112,90 @@ $migrationStr = <<<STR
 
             public function up(): void
             {
-                \$this->addSql(%s);
+                {up}
             }
 
             public function down(): void
             {
-                \$this->addSql(%s);
+                {down}
             }
         }
 STR;
 
-        $filename = date('mdYhia');
-        $migration = sprintf($migrationStr, $filename);
+        $date = date('mdYhi');
+        $entities = getEntities();
+        $addUpSqls = [];
+        $addDownSqls = [];
+
+        foreach ($entities as $entity) {
+            $tableInstance = $entity->getAttributes(App\Core\Attributes\Table::class)[0]->newInstance();
+            $tableName = $tableInstance->name;
+            $upSql = '';
+            $props = $entity->getProperties();
+
+            $upSql.= 'CREATE TABLE '.$tableName.'(';
+
+            foreach ($props as $prop) {
+                $attributes = $prop->getAttributes(App\Core\Attributes\Column::class);
+
+                foreach ($attributes as $attribute) {
+                    $name = $prop->getName() ?? '';
+                    $instance = $attribute->newInstance();
+                    $type = $instance->type;
+                    $length = $instance->length ?? null;
+                    $unique = $instance->unique ?? false;
+                    $nullable = $instance->nullable ?? false;
+                    $isPrimary = $instance->isPrimary ?? false;
+                    $default = $instance->default ?? 'NULL';
+
+                    $dataType = @$type->value;
+
+                    if ($isPrimary && !isset($length)) {
+                        $dataType = 'int';
+                        $length = 6;
+                    }
+
+                    $lengthAttr = isset($length) ? '('. $length .')' : '';
+                    $autoIncrement = $isPrimary ? ' AUTO_INCREMENT' : '';
+                    $primary = $isPrimary ? ' PRIMARY KEY' : '';
+                    $null = $nullable ? ' DEFAULT '.$default : ' NOT NULL';
+                    $unsigned = $dataType === 'int' ? ' UNSIGNED' : '';
+
+                    $upSql.= $name.' '.$dataType.$lengthAttr.$unsigned.$autoIncrement.$primary.$null.', ';
+                }
+            }
+            
+            $upSql = rtrim($upSql, ', ');
+            $upSql.= ')';
+
+            array_push($addUpSqls, '$this->addSql(\''. $upSql ."');\r\n");
+            array_push($addDownSqls, '$this->addSql(\'DROP TABLE '.$tableName.'\');'."\r\n");
+        }
+        
+        $migration = sprintf($migrationStr, $date);            
+        $result = preg_replace('/({up})/', implode(' ', $addUpSqls), $migration);
+        $result = preg_replace('/({down})/', implode(' ', $addDownSqls), $result);
+
+        file_put_contents(BASENAME.'/../migrations/Version'.$date.'.php', $result);
+}
+
+function getEntities() {
+    $entities = [];
+    $models = array_diff(scandir(BASENAME.'/../Models/'), array('.', '..'));
+    $modelFilenames = array_map(fn($model) => pathinfo($model)['filename'], $models);
+
+    foreach ($modelFilenames as $model) {
+        $class = 'Models/'.$model;
+        $dir = BASENAME.'/../'.$class.'.php';
+        if(file_exists($dir)) {
+            $className = 'App\Models\\'.$model;
+            $instance = new $className();
+
+            array_push($entities, new \ReflectionClass(get_class($instance)));
+        } else {
+            echo 'file does not exist '.$class;
+        }
+    }
+
+    return $entities;
 }

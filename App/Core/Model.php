@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core;
 
 use App\Core\Attributes\Column;
+use App\Core\Attributes\Table;
 
 class Model {
     public $db;
@@ -20,15 +21,20 @@ class Model {
         $this->class = get_called_class();
         $this->app = $app;
         $this->result = null;
+        $this->reflectionClass = new \ReflectionClass($this->class);
+
+        $this->table = $this->getTableProperty();
+        $props = $this->getColumnProperty();
+        $this->idField = $props['idField'];
+        $this->props = array_diff($props, [$this->idField]);
     }
 
     function find(array $criteria) {
         $result = DB::Table($this->table)->Select()->WhereOnce($criteria);
         $class = new $this->class();
-        $idField = $this->getColumnProperty( new \ReflectionClass($this))['idField'];
 
         foreach ($result as $column => $variable) {
-            if ($column === $idField) {
+            if ($column === $this->idField) {
                 $class->{$column} = $variable;
             } else {
                 if(method_exists($class, 'set'.ucfirst($column))) {
@@ -48,7 +54,7 @@ class Model {
         $result = DB::Table($this->table)->Select()->All();
         $results = [];
 
-        $idField = $this->getColumnProperty( new \ReflectionClass($this))['idField'];
+        $idField = $this->idField;
 
         foreach ($result as $key => $value) {
             $class = new $this->class();
@@ -75,11 +81,9 @@ class Model {
         $entity = $this->table;
         $data = [];
        
-        $props = $this->getColumnProperty( new \ReflectionClass($this));
-        $idField = $props['idField'];
-        unset($props['idField']);
+        $idField = $this->idField;
 
-        foreach ($props as $key => $prop) {
+        foreach ($this->props as $key => $prop) {
             $data[$key] = $this->{$prop}();
         }
 
@@ -92,10 +96,10 @@ class Model {
         return true;
     }
 
-    public function getColumnProperty(\ReflectionClass $reflectionClass)
+    public function getColumnProperty()
     {
         $data = [];
-        $reflectionProperties = $reflectionClass->getProperties();
+        $reflectionProperties = $this->reflectionClass->getProperties();
 
         foreach ($reflectionProperties as $reflectionProperty) {
             $attributes = $reflectionProperty->getAttributes(Column::class);
@@ -111,6 +115,18 @@ class Model {
         }
 
         return $data;
+    }
+
+    public function getTableProperty() {
+        $class = $this->reflectionClass;
+        $attribute = $class->getAttributes(Table::class)[0];
+        
+        if ($attribute) {
+            $instance = $attribute->newInstance();
+
+            return $instance->name;
+        }
+        return null;
     }
 
     public function __set($name, $value) {

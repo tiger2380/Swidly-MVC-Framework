@@ -12,5 +12,7 @@ function formatPrint(array $format=[],string $text = '') {
   }
   
   function formatPrintLn(array $format=[], string $text='') {
-    formatPrint($format, $text); echo "\r\n";
+    echo "\r\n";
+    formatPrint($format, $text); 
+    echo "\r\n";
   }

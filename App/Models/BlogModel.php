@@ -7,9 +7,9 @@ use App\Core\Attributes\Table;
 use App\Core\Attributes\Column;
 use App\Core\Enums\Types;
 
-#[Table(name: 'post')]
-class PostModel extends Model {
-    #[Column(isPrimary: true)]
+#[Table(name: 'blog')]
+class BlogModel extends Model {
+    #[Column(isPrimary: true, type: Types::INTEGER)]
     public int $id;
 
     #[Column(type: Types::STRING, length: 50)]
@@ -18,7 +18,7 @@ class PostModel extends Model {
     #[Column(type: Types::DATETIME)]
     private string $createdAt;
 
-    #[Column(type: Types::STRING)]
+    #[Column(type: Types::STRING, nullable: true)]
     private string $body;
 
     public function getId(): int {

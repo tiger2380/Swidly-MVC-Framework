@@ -242,7 +242,7 @@ class App {
         $themePath = BASENAME.'/../themes/'.$themeName;
 
         if(!file_exists($themePath)) {
-            throw new \Exception('Unknown theme: '.$themeName);
+            throw new AppException('Unknown theme: '.$themeName);
         }
         $dir = $themePath;
         $url = self::getConfig('url').'/App/themes/'.$themeName;
@@ -284,7 +284,7 @@ class App {
             }
         }
         
-        throw new \Exception('Unable to load module');
+        throw new AppException('Unable to load module');
     }
 
     static function load_single_page() {
