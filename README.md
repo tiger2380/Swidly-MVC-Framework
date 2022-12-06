@@ -17,6 +17,12 @@ php -S localhost:8000
 ```
 and then avigate to `localhost:8000` in your browser.
 
+To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/Config.php](Swidly/Core/Config.php) file. Migrate the tables by running this command in the termial:
+```terminal
+php Swidly/Core/bin/console.php make:migrate --up
+```
+This will create the tables to run the sample application.
+
 ## Configuration
 The configuration settings are stored under [Swidly/Core/Config.php](Swidly/Core/Config.php)
 You can access the settings in your code by: `Swidly::getConfig('db::host')`. You can also set a default value by: `Swidly::getConfig('db::host', 'localhost')`.
