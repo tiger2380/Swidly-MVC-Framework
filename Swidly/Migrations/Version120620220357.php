@@ -10,7 +10,7 @@ final class Version120620220357 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Added blog and post tables';
+        return 'Added blog and post sample tables';
     }
 
     public function up(): void
