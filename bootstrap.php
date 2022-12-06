@@ -1,6 +1,6 @@
 <?php
 
-define('APP_PATH', __DIR__.'/App/');
+define('APP_PATH', __DIR__.'/Swidly/');
 spl_autoload_register('autoLoader');
 
 function autoLoader($className) {

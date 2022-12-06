@@ -3,4 +3,4 @@
 session_start();
 require __DIR__ . '/../bootstrap.php';
 
-(new App\Core\App())->run();
+(new Swidly\Core\Swidly())->run();

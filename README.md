@@ -6,10 +6,10 @@ Steps to implement this MVC on your server:
 
 1. First, get the code by downloading the zip or cloning the repo.
 1. Run composer... oh right, no composer installation is required!
-1. That's it. To configure, Open [App/Core/Config.php](App/Core/Config.php) and fill out your server information
+1. That's it. To configure, Open [Swidly/Core/Config.php](Swidly/Core/Config.php) and fill out your server information
 1. Create routes, controllers, views, and models.
 
-Also supports, templating and multi-language. You can edit the file at: [App/lang/en.json](App/lang/en.json). Wrap the word/phrase with {} and the templating system will handle the rest. 
+Also supports, templating and multi-language. You can edit the file at: [Swidly/lang/en.json](Swidly/lang/en.json). Wrap the word/phrase with {} and the templating system will handle the rest. 
 
 You can start the app by using php built-in server by typing:
 ```terminal
@@ -18,14 +18,14 @@ php -S localhost:8000
 and then avigate to `localhost:8000` in your browser.
 
 ## Configuration
-The configuration settings are stored under [App/Core/Config.php](App/Core/Config.php)
-You can access the settings in your code by: `App::getConfig('db::host')`. You can also set a default value by: `App::getConfig('db::host', 'localhost')`.
+The configuration settings are stored under [Swidly/Core/Config.php](Swidly/Core/Config.php)
+You can access the settings in your code by: `Swidly::getConfig('db::host')`. You can also set a default value by: `Swidly::getConfig('db::host', 'localhost')`.
 
 ## Routing
 
-The [Router](App/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](App/Controllers/HomeController.php).
+The [Router](Swidly/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](Swidly/Controllers/HomeController.php).
 
-Routes are located in the [App/routes.php](App/routes.php) file
+Routes are located in the [Swidly/routes.php](Swidly/routes.php) file
 
 To add a route, you can do it like so: `$this->get('{path}', '{controller}::{action}')` method. 
 
@@ -109,21 +109,21 @@ class PostController extends Controller {
 ```
 
 ## Middlewares
-Middlewares can be stored in the [App/Middleware](App/Middleware) directory
+Middlewares can be stored in the [Swidly/Middleware](Swidly/Middleware) directory
 
 ## Controllers
-Controllers respond to user actions (clicking on a link, submitting a form etc.). Controllers are classes that extend the [App\Core\Controller](App/Core/Controller.php) class.
+Controllers respond to user actions (clicking on a link, submitting a form etc.). Controllers are classes that extend the [Swidly\Core\Controller](Swidly/Core/Controller.php) class.
 
-Controllers are stored in the `App/Controllers` folder. A sample [Home controller](App/Controllers/HomeController.php) is included. Controller classes need to be in the `App/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
+Controllers are stored in the `Swidly/Controllers` folder. A sample [Home controller](Swidly/Controllers/HomeController.php) is included. Controller classes need to be in the `Swidly/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
 
-Controller classes contain methods that are the actions. To create an action, add the **`Action`** suffix to the method name. The sample controller in [App/Controllers/HomeController.php](App/Controllers/HomeController.php) has a sample `index` action.
+Controller classes contain methods that are the actions. To create an action, add the **`Action`** suffix to the method name. The sample controller in [Swidly/Controllers/HomeController.php](Swidly/Controllers/HomeController.php) has a sample `index` action.
 
 You can access route parameters (for example the **id** parameter shown in the route examples above) in actions via the `$request->get('id')` property.
 
 
 ## Views
 
-Views are used to display information (normally HTML). View files go in the `App/themes/{themename}/views/` folder. Views can be in one of two formats: standard PHP, but with just enough PHP to show the data. No database access or anything like that should occur in a view file. You can render a standard PHP view in a controller, optionally passing in variables, like this:
+Views are used to display information (normally HTML). View files go in the `Swidly/themes/{themename}/views/` folder. Views can be in one of two formats: standard PHP, but with just enough PHP to show the data. No database access or anything like that should occur in a view file. You can render a standard PHP view in a controller, optionally passing in variables, like this:
 
 ```php
 $this->render('home', [
@@ -135,7 +135,7 @@ $this->render('home', [
 You can also use the render function in views
 
 ## Models
-Models are used to get and store data in your application. They know nothing about how this data is to be presented in the views. Models extend the `App\Core\Model` class and use [PDO](http://php.net/manual/en/book.pdo.php) to access the database. They're stored in the `App/Models` folder. A sample post model class is included in [App/Models/PostModel.php](App/Models/PostModel.php). 
+Models are used to get and store data in your application. They know nothing about how this data is to be presented in the views. Models extend the `Swidly\Core\Model` class and use [PDO](http://php.net/manual/en/book.pdo.php) to access the database. They're stored in the `Swidly/Models` folder. A sample post model class is included in [Swidly/Models/PostModel.php](Swidly/Models/PostModel.php). 
 
 You must set the `$table` property of the model. The `$idField` is also required.
 
@@ -173,7 +173,7 @@ $this->model->findBy(['id' => '123']);
 
 This is example how to insert new data into the database
 ```php
-\App\Core\DB::Table('posts')->Insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
+\Swidly\Core\DB::Table('posts')->Insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
 ```
 
 Insert data using an entity for example `PostModel`.
@@ -203,7 +203,7 @@ function UpdatePost($req, $res) {
 ## Single Page Support (beta)
 Support single page with ease right out-of-the-box
 
-To enable single page support, just add a `<div id="app"></div>` to the index file of the theme and load the single page script: `<?= \App\Core\App::load_single_page(); ?>`
+To enable single page support, just add a `<div id="app"></div>` to the index file of the theme and load the single page script: `<?= \Swidly\Core\Swidly::load_single_page(); ?>`
 
 Please see below:
 ```html
@@ -213,14 +213,14 @@ Please see below:
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= App\Core\App::getConfig('app::title') ?></title>
+    <title><?= Swidly\Core\Swidly::getConfig('app::title') ?></title>
 </head>
 <body>
     <a href="/" data-sp-link>Home</a> | <a href="/posts" data-sp-link>Posts</a> | <a href="/about" data-sp-link>About</a> | <a href="/contact" data-sp-link>Contact</a> | 
 
     <div id="app"></div>
      
-    <?= \App\Core\App::load_single_page(); ?>
+    <?= \Swidly\Core\Swidly::load_single_page(); ?>
 </body>
 </html>
 ```
