@@ -8,13 +8,6 @@ use Swidly\Core\Attributes\Route;
 
 define('BASENAME', dirname(__FILE__));
 
-if(file_exists(BASENAME.'/helpers.php')) {
-    require_once BASENAME . '/helpers.php';
-} else {
-    echo 'helpers file doesn\'t exists';
-    exit();
-}
-
 class Swidly {
     public static array $middlewares = [];
     public static array $routeNames = [];
@@ -75,7 +68,7 @@ class Swidly {
         return $this;
     }
 
-    public  function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void {
+    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void {
         if (is_array($methods)) {
             foreach ($methods as $method) {
                 if (is_array($paths)) {

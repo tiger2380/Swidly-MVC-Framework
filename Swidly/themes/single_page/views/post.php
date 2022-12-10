@@ -1,7 +1,7 @@
 <h1>This is the post page</h1>
 <h4>Only authorized users can view posts.</h4>
 
-<form method="post" action="<?= Swidly\Core\Swidly::path('addPost') ?>">
+<form method="post" data-sp-form action="<?= Swidly\Core\Swidly::path('addPost') ?>">
     <legend>Title</legend>
     <input type="text" name="title" />
 

@@ -17,6 +17,10 @@ export default class SinglePage {
         Array.from(document.querySelectorAll('[data-sp-link]')).forEach((link => {
             this.#addClickListener(link);
         }));
+
+        Array.from(document.querySelectorAll('[data-sp-form]')).forEach((form => {
+            this.#addSubmitListener(form);
+        }));
         
         window.addEventListener('popstate', (event) => {
             const state = JSON.parse(event.state);
@@ -71,29 +75,32 @@ export default class SinglePage {
         })
     }
 
+    async #addSubmitListener(element) {
+        element.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const path = event.target.getAttribute('action');
+
+            const reponse = await this.fetchData(path);
+
+            console.log(reponse);
+        });
+    }
+
     async #loadPage() {
         this.emit('beforeFetch');
         const path = location.pathname;
 
-        const response = await fetch(path, {
-            method: 'GET', // *GET, POST, PUT, DELETE, etc.
-            mode: 'cors', // no-cors, *cors, same-origin
-            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-            credentials: 'same-origin', // include, *same-origin, omit
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        const jsonData = await response.json();
-        jsonData.path = path;
+        const response = await this.fetchData(path);
+        response.path = path;
         
         const app = document.getElementById('app');
-        app.innerHTML = jsonData.data.content;
+        app.innerHTML = response.data.content;
 
-        if(jsonData.data.title) {
+        if(response.data.title) {
             let currentTitle = this.#resetTitle();
             
-            document.title = jsonData.data.title + this.titleDelimiter + currentTitle;
+            document.title = response.data.title + this.titleDelimiter + currentTitle;
         } else {
             document.title = this.#resetTitle();
         }
@@ -102,6 +109,11 @@ export default class SinglePage {
         Array.from(app.querySelectorAll('[data-sp-link]')).forEach((link => {
             this.#addClickListener(link);
         }));
+
+        Array.from(app.querySelectorAll('[data-sp-form]')).forEach((form => {
+            this.#addSubmitListener(form);
+        }));
+
 
         this.emit('afterFetch');
     }
@@ -115,6 +127,20 @@ export default class SinglePage {
         }
 
         return currentTitle;
+    }
+
+    async fetchData(path, data = {}, method = 'GET') {
+        const response = await fetch(path, {
+            method: method, // *GET, POST, PUT, DELETE, etc.
+            mode: 'cors', // no-cors, *cors, same-origin
+            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+            credentials: 'same-origin', // include, *same-origin, omit
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        return await response.json();
     }
 
     #addPadding(string) {
