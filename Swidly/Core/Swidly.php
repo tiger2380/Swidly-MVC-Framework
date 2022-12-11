@@ -6,7 +6,6 @@ namespace Swidly\Core;
 use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Attributes\Route;
 
-define('BASENAME', dirname(__FILE__));
 
 class Swidly {
     public static array $middlewares = [];
@@ -145,8 +144,8 @@ class Swidly {
     }
 
     public function run(): void {
-        if(file_exists(BASENAME.'/../routes.php')) {
-            require_once BASENAME . '/../routes.php';
+        if(file_exists(APP_PATH.'/routes.php')) {
+            require_once APP_PATH . '/routes.php';
         } else {
             echo 'routes file doesn\'t exists';
             exit();
@@ -162,7 +161,7 @@ class Swidly {
     }
 
     public function loadControllerRoutes() {
-        $controllers = array_diff(scandir(BASENAME.'/../Controllers/'), array('.', '..'));
+        $controllers = array_diff(scandir(APP_PATH.'/Controllers/'), array('.', '..'));
         $controllerFilenames = array_map(fn($controller) => pathinfo($controller)['filename'], $controllers);
 
         foreach ($controllerFilenames as $controller) {
@@ -232,7 +231,7 @@ class Swidly {
 
     static function themePath() {
         $themeName = self::getConfig('theme', 'default');
-        $themePath = BASENAME.'/../themes/'.$themeName;
+        $themePath = APP_PATH.'/themes/'.$themeName;
 
         if(!file_exists($themePath)) {
             throw new AppException('Unknown theme: '.$themeName);
@@ -281,9 +280,9 @@ class Swidly {
     }
 
     static function load_single_page() {
-        $core_js = BASENAME.'/scripts/app.js';
+        $core_js = APP_CORE.'/scripts/app.js';
         if(file_exists($core_js)) {
-            $core_js_path = '/Swidly/Core/scripts/app.js';
+            $core_js_path = APP_CORE.'/scripts/app.js';
             echo '<script type="module" defer src="'.$core_js_path.'"></script>';
             return;
         }

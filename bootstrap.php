@@ -1,11 +1,13 @@
 <?php
 define('APP_VERSION', '0.0.1');
-define('APP_PATH', __DIR__.'/Swidly/');
+define('APP_ROOT', __DIR__);
+define('APP_PATH', APP_ROOT.'/Swidly');
+define('APP_CORE', APP_PATH.'/Core');
 
 spl_autoload_register('autoLoader');
 
-if(file_exists(APP_PATH.'/Core/helpers.php')) {
-    require_once APP_PATH . '/Core/helpers.php';
+if(file_exists(APP_CORE.'/helpers.php')) {
+    require_once APP_CORE . '/helpers.php';
 } else {
     echo 'helpers file doesn\'t exists';
 }

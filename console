@@ -3,10 +3,9 @@
 
 declare(strict_types=1);
 
-require_once 'formatPrint.php';
-define('ROOTDIR', dirname(dirname(__FILE__)));
+require_once './Swidly/Core/Console/formatPrint.php';
 
-require ROOTDIR.'/../../bootstrap.php';
+require 'bootstrap.php';
 $routeStr = <<<STR
 
 \$this->get('%s%s', '%sController::Index')
@@ -16,9 +15,9 @@ STR;
 $args = $_SERVER['argv'];
 $opts = getopt("p::v::o::", ['up:', 'down:'], $rest_index);
 $args = array_slice($args, $rest_index);
-$command = $args[0];
+$command = count($args) > 0 ? $args[0] : null;
 
-if(stripos($command, ':') > -1) {
+if(isset($command) && stripos($command, ':') > -1) {
     list($action, $method) = explode(':', $command);
 
     if($action === 'make') {
@@ -63,7 +62,7 @@ if(stripos($command, ':') > -1) {
             makeMigration();
         } else if ($method === 'migrate') {
             formatPrintLn(['cyan', 'bold'], "Migrating..");
-            $migrationDir = ROOTDIR.'/../Migrations/';
+            $migrationDir = APP_PATH.'/Migrations/';
             $versions = array_diff(scandir($migrationDir), array('.', '..'));
             $migrationFilenames = array_map(fn($migration) => pathinfo($migration)['filename'], $versions);
             $option = $args[1];
@@ -216,17 +215,17 @@ STR;
         $result = preg_replace('/({up})/', implode(' ', $addUpSqls), $migration);
         $result = preg_replace('/({down})/', implode(' ', $addDownSqls), $result);
 
-        file_put_contents(ROOTDIR.'/../Migrations/Version'.$date.'.php', $result);
+        file_put_contents(APP_PATH.'/Migrations/Version'.$date.'.php', $result);
 }
 
 function getEntities() {
     $entities = [];
-    $models = array_diff(scandir(ROOTDIR.'/../Models/'), array('.', '..'));
+    $models = array_diff(scandir(APP_PATH.'/Models/'), array('.', '..'));
     $modelFilenames = array_map(fn($model) => pathinfo($model)['filename'], $models);
 
     foreach ($modelFilenames as $model) {
         $class = 'Models/'.$model;
-        $dir = ROOTDIR.'/../'.$class.'.php';
+        $dir = APP_PATH.'/'.$class.'.php';
         if(file_exists($dir)) {
             $className = 'Swidly\Models\\'.$model;
             $instance = new $className();
