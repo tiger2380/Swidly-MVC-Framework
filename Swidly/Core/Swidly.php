@@ -282,7 +282,7 @@ class Swidly {
     static function load_single_page() {
         $core_js = APP_CORE.'/scripts/app.js';
         if(file_exists($core_js)) {
-            $core_js_path = APP_CORE.'/scripts/app.js';
+            $core_js_path = '/Swidly/Core/scripts/app.js';
             echo '<script type="module" defer src="'.$core_js_path.'"></script>';
             return;
         }

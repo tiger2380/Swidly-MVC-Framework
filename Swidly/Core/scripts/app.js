@@ -25,7 +25,9 @@ const options = {
         if(document.querySelector('.loader')) {
             document.querySelector('.loader').style.width = '100%';
             setTimeout(() => {
-                document.querySelector('.loader').remove();
+                if(document.querySelector('.loader')) {
+                    document.querySelector('.loader').remove();
+                }
             }, 1000);
         }
     },

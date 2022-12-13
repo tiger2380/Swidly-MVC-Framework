@@ -2,7 +2,7 @@
 
 namespace Swidly\Core;
 
-define('RESPOND_WITH_REQUEST', TRUE);
+define('RESPOND_WITH_REQUEST', FALSE);
 
 class Response
 {
