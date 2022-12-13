@@ -78,10 +78,11 @@ export default class SinglePage {
     async #addSubmitListener(element) {
         element.addEventListener('submit', async (event) => {
             event.preventDefault();
-            
+            console.log(event);
             const path = event.target.getAttribute('action');
+            const formData = new FormData(event.target);
 
-            const reponse = await this.fetchData(path);
+            const reponse = await this.fetchData(path, {title: 'Test Title', content: 'this is a test body'}, 'POST');
 
             console.log(reponse);
         });
@@ -129,16 +130,21 @@ export default class SinglePage {
         return currentTitle;
     }
 
-    async fetchData(path, data = {}, method = 'GET') {
-        const response = await fetch(path, {
-            method: method, // *GET, POST, PUT, DELETE, etc.
-            mode: 'cors', // no-cors, *cors, same-origin
-            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-            credentials: 'same-origin', // include, *same-origin, omit
+    async fetchData(path, data = {}, requestType = 'GET') {
+        const requestOpts = {
+            method: requestType,
+            cache: 'no-cache',
             headers: {
                 'Content-Type': 'application/json'
             }
-        });
+        };
+
+        if ('post' === requestType.toLowerCase()) {
+            requestOpts.body = JSON.stringify(data);
+        }
+
+        const request = new Request(path, requestOpts);
+        const response = await fetch(request);
         
         return await response.json();
     }
