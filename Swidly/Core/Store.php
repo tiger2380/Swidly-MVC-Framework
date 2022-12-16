@@ -14,18 +14,21 @@ namespace Swidly\Core;
  * @author thadd
  */
 class Store {
-    static function save($key, $value) {
+    static function save($key, $value): void
+    {
         if(self::hasKey($key)) {
             self::delete($key);
         }
         $_SESSION[$key] = $value;
     }
     
-    static function hasKey($key) {
+    static function hasKey($key): bool
+    {
         return array_key_exists($key, $_SESSION);
     }
 
-    static function showMessage($key) {
+    static function showMessage($key): void
+    {
         if(self::hasKey($key)) {
             echo $_SESSION[$key];
         } else {
@@ -43,7 +46,8 @@ class Store {
         }
     }
     
-    static function delete($key) {
+    static function delete($key): void
+    {
         if(self::hasKey($key)) {
             unset($_SESSION[$key]);
         }

@@ -9,7 +9,7 @@ class Router
     protected $DELETE = [];
     protected $PULL = [];
     protected $UPDATE = [];
-    public $routes = [];
+    public array $routes = [];
 
     public function __construct(
         private Request $request = new Request, 
@@ -42,12 +42,17 @@ class Router
         return $this;
     }
 
-    public function getRoutes() {
+    public function getRoutes(): void
+    {
         dump($this->routes);
     }
 
-    protected function map() {
-        $replace = trim(dirname(dirname($this->request->serverName())), '/');
+    /**
+     * @throws SwidlyException
+     */
+    protected function map(): void
+    {
+        $replace = trim(dirname($this->request->serverName(), 2), '/');
         $uri = rtrim(str_replace($replace, '', $this->request->getUri()), '/');
         $exp = explode('?', $uri);
         $route = array_shift($exp);
@@ -58,7 +63,7 @@ class Router
 
         $newRoute = [];
         foreach($routes as $path => $callback) {
-            //optinal parameter
+            //optional parameter
             if(stripos($path, '?:') > -1) {
                 $stripped = preg_replace("/\/\?\:\w+\/?/", "", $path);
                 $newRoute[$stripped] = $callback;
@@ -100,7 +105,7 @@ class Router
                 if(is_callable($callback)) {
                     call_user_func_array($callback, array(&$this->request, &$this->response));
                 } else if (is_string($callback)) {
-                    if(strstr($callback, '::')) {
+                    if(str_contains($callback, '::')) {
                         list($controller, $method) = explode('::', $callback);
                         $className = $controller;
                         $class = new $className();
@@ -119,21 +124,24 @@ class Router
         throw new \Swidly\Core\SwidlyException('Unknown page.', 404);
     }
 
-    public function run() {
+    public function run(): void
+    {
         try {
             $this->map();
-        } catch (\Swidly\Core\SwidlyException $ex) {
+        } catch (SwidlyException $ex) {
             Response::setStatusCode($ex->getCode());
             (new Controller())->render('404', ['message' => $ex->getMessage()]);
         }
     }
 
-    public function run_single_page() {
+    public function run_single_page(): void
+    {
         try {
             $basePath = Swidly::themePath()['base'];
             require_once $basePath.'/index.php';
-        } catch(\Swidly\Core\SwidlyException $ex) {
-
+        } catch(SwidlyException $ex) {
+            Response::setStatusCode($ex->getCode());
+            (new Controller())->render('404', ['message' => $ex->getMessage()]);
         }
     }
 }

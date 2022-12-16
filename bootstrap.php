@@ -1,8 +1,8 @@
 <?php
-define('APP_VERSION', '0.0.1');
-define('APP_ROOT', __DIR__);
-define('APP_PATH', APP_ROOT.'/Swidly');
-define('APP_CORE', APP_PATH.'/Core');
+const APP_VERSION = '0.0.1';
+const APP_ROOT = __DIR__;
+const APP_PATH = APP_ROOT . '/Swidly';
+const APP_CORE = APP_PATH . '/Core';
 
 spl_autoload_register('autoLoader');
 
@@ -12,7 +12,8 @@ if(file_exists(APP_CORE.'/helpers.php')) {
     echo 'helpers file doesn\'t exists';
 }
 
-function autoLoader($className) {
+function autoLoader($className): void
+{
     $paths = [
         APP_PATH.'Controllers/',
         APP_PATH.'Core/',

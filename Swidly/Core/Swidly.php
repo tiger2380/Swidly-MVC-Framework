@@ -15,11 +15,11 @@ class Swidly {
     protected bool $isSinglePage = false;
 
     public function __construct(
-        private Container $container = new Container,
-        public Response $response = new Response,
-        public Form $form = new Form(),
-        protected Request $request = new Request,
-        private Router $router = new Router,
+        private readonly Container $container = new Container,
+        public Response            $response = new Response,
+        public Form                $form = new Form(),
+        protected Request          $request = new Request,
+        private readonly Router    $router = new Router,
     )
     {
         $this->isSinglePage = self::getConfig('app::single_page', false);
@@ -94,7 +94,7 @@ class Swidly {
         }
     }
 
-    public function registerRoutes(\ReflectionClass $reflectionClass)
+    public function registerRoutes(\ReflectionClass $reflectionClass): void
     {
         $className = $reflectionClass->getName();
         $methods = $reflectionClass->getMethods();
@@ -114,7 +114,8 @@ class Swidly {
         }
     }
 
-    public function registerMiddlewares($method, $paths) {
+    public function registerMiddlewares($method, $paths): void
+    {
         $attributes = $method->getAttributes(Middleware::class);
         
         if(\count($attributes) > 0) {
@@ -135,14 +136,19 @@ class Swidly {
         }
     }
 
-    static public function isSinglePage() {
+    static public function isSinglePage(): bool
+    {
         return Swidly::getConfig('app::single_page', false) === true;
     }
 
-    static public function isRequestJson() {
+    static public function isRequestJson(): bool
+    {
         return (new Request)->get('HTTP_CONTENT_TYPE') === 'application/json';
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function run(): void {
         if(file_exists(APP_PATH.'/routes.php')) {
             require_once APP_PATH . '/routes.php';
@@ -160,7 +166,11 @@ class Swidly {
         $this->router->run();
     }
 
-    public function loadControllerRoutes() {
+    /**
+     * @throws \ReflectionException
+     */
+    public function loadControllerRoutes(): void
+    {
         $controllers = array_diff(scandir(APP_PATH.'/Controllers/'), array('.', '..'));
         $controllerFilenames = array_map(fn($controller) => pathinfo($controller)['filename'], $controllers);
 
@@ -229,12 +239,13 @@ class Swidly {
         return file_exists($path) ? $path : '';
     }
 
-    static function themePath() {
+    static function themePath(): array
+    {
         $themeName = self::getConfig('theme', 'default');
         $themePath = APP_PATH.'/themes/'.$themeName;
 
         if(!file_exists($themePath)) {
-            throw new AppException('Unknown theme: '.$themeName);
+            throw new SwidlyException('Unknown theme: '.$themeName);
         }
         $dir = $themePath;
         $url = self::getConfig('url').'/Swidly/themes/'.$themeName;

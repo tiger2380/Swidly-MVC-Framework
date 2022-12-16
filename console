@@ -111,7 +111,8 @@ function handle_migrate(array $migrationFilenames) {
     }
 }
 
-function createController(string $name) {
+function createController(string $name): void
+{
 $controllerStr = <<<STR
 <?php
     namespace Swidly\Controllers;
@@ -207,8 +208,8 @@ STR;
             $upSql = rtrim($upSql, ', ');
             $upSql.= ')';
 
-            array_push($addUpSqls, '$this->addSql(\''. $upSql ."');\r\n");
-            array_push($addDownSqls, '$this->addSql(\'DROP TABLE IF EXISTS '.$tableName.'\');'."\r\n");
+            $addUpSqls[] = '$this->addSql(\'' . $upSql . "');\r\n";
+            $addDownSqls[] = '$this->addSql(\'DROP TABLE IF EXISTS ' . $tableName . '\');' . "\r\n";
         }
         
         $migration = sprintf($migrationStr, $date);  
@@ -230,7 +231,7 @@ function getEntities() {
             $className = 'Swidly\Models\\'.$model;
             $instance = new $className();
 
-            array_push($entities, new \ReflectionClass(get_class($instance)));
+            $entities[] = new \ReflectionClass(get_class($instance));
         } else {
             echo 'file does not exist '.$class;
         }

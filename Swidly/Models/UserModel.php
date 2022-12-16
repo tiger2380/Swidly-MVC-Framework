@@ -9,7 +9,7 @@ use Swidly\Core\Enums\Types;
 
 #[Table(name: 'users')]
 class UserModel extends Model {
-    #[Column(isPrimary: true, type: Types::INTEGER)]
+    #[Column(type: Types::INTEGER, isPrimary: true)]
     public int $id;
 
     #[Column(type: Types::STRING, length: 50)]

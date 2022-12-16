@@ -131,8 +131,8 @@ export default class SinglePage {
     }
 
     async fetchData(path, data = {}, requestType = 'GET') {
-        const requestOpts = {
-            method: requestType,
+        const options = {
+            method: requestType.toUpperCase(),
             cache: 'no-cache',
             headers: {
                 'Content-Type': 'application/json'
@@ -140,10 +140,10 @@ export default class SinglePage {
         };
 
         if ('post' === requestType.toLowerCase()) {
-            requestOpts.body = JSON.stringify(data);
+            options.body = JSON.stringify(data);
         }
 
-        const request = new Request(path, requestOpts);
+        const request = new Request(path, options);
         const response = await fetch(request);
         
         return await response.json();

@@ -1,7 +1,8 @@
 <?php
-use \Swidly\Swidly;
+use \Swidly\Core;
 
-function dump($input, $stop = false) {
+function dump($input, $stop = false): void
+{
     echo '<pre style="display: inline-block; background: rgba(0,0,0,0.8); color: white; padding: 1.4rem;">';
     print_r($input);
     echo '</pre><br/>';
@@ -11,11 +12,13 @@ function dump($input, $stop = false) {
     }
 }
 
-function stripQuestionMarks($value) {
+function stripQuestionMarks($value): array|string
+{
     return str_replace('?', '', $value);
 }
 
-function hex2rgb($value = '#000000') {
+function hex2rgb($value = '#000000'): array
+{
     $cleanHex = ($value[0] === '#' ? substr($value, 1, strlen($value)) : $value);
 
     $r = intval(substr($cleanHex, 0, 2), 16);
@@ -70,14 +73,13 @@ function resize_image($image, $width, $height) {
     }
 }
 
-function load_default_theme() {
-    $default_theme = [
+function load_default_theme(): array
+{
+    return [
         'color' => hex2rgb('#EEEEEE'),
         'layout' => 'default',
         'logo' => 'https://cdn.pixabay.com/photo/2016/11/07/13/04/yoga-1805784_1280.png',
     ];
-
-    return $default_theme;
 }
 
 function parseArray(array $original_array, $prefix = null): array {

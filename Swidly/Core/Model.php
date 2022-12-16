@@ -8,11 +8,17 @@ use Swidly\Core\Attributes\Column;
 use Swidly\Core\Attributes\Table;
 
 class Model {
-    public $db;
     public $app;
-    protected $class;
-    private $vars = [];
+    protected string $class;
+    private array $vars = [];
     protected const ATTRIBUTE_NAME = 'Column';
+    /**
+     * @var null
+     */
+    private $result;
+    private \ReflectionClass $reflectionClass;
+    private mixed $idField;
+    private array $props;
 
 
     public function __construct()
@@ -50,7 +56,8 @@ class Model {
         return $class;
     }
 
-    function findAll() {
+    function findAll(): array
+    {
         $result = DB::Table($this->table)->Select()->All();
         $results = [];
 
@@ -77,7 +84,8 @@ class Model {
         return $results;
     }
 
-    function save() {
+    function save(): bool
+    {
         $entity = $this->table;
         $data = [];
        
@@ -96,7 +104,7 @@ class Model {
         return true;
     }
 
-    public function getColumnProperty()
+    public function getColumnProperty(): array
     {
         $data = [];
         $reflectionProperties = $this->reflectionClass->getProperties();

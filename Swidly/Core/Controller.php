@@ -6,10 +6,10 @@ use Swidly\Core\Request;
 
 class Controller
 {
-    protected $_template = '';
-    public $app = null;
-    public $model = null;
-    public $vars = array();
+    public ?object $app = null;
+    public mixed $model = null;
+    public array $vars = [];
+    private mixed $lang;
 
     public function __construct()
     {
@@ -25,7 +25,13 @@ class Controller
         }
     }
 
-    public function render($page, $data = [])
+    /**
+     * @param string $page
+     * @param array $data
+     * @return void
+     * @throws SwidlyException
+     */
+    public function render(string $page, array $data = []): void
     {
         $base = Swidly::themePath()['base'];
         $page = $base.'/views/'.$page.'.php';
@@ -61,18 +67,22 @@ class Controller
         }
     }
 
-    protected function parse($str = null)
+    /**
+     * @param string|null $str
+     * @return array|string|null
+     */
+    protected function parse(string $str = null): array|string|null
     {
         $vars = $this->vars;
         return preg_replace_callback('|{([a-zA-Z0-9_\:]+)}|', function ($matches) use ($vars) {
-            $word = isset($vars[$matches[1]]) ? $vars[$matches[1]] : (isset($vars['lang'][$matches[1]]) ? $vars['lang'][$matches[1]] : '');
+            $word = $vars[$matches[1]] ?? ($vars['lang'][$matches[1]] ?? '');
 
-            $string = isset($word) ? $this->parse($word) : '';
-            return $string;
+            return isset($word) ? $this->parse($word) : '';
         }, $str);
     }
 
-    protected function getLanguage() {
+    protected function getLanguage()
+    {
         global $app;
 
         $default_lang = (new Request())->get('lang', Swidly::getConfig('default_lang'));
@@ -80,9 +90,7 @@ class Controller
 
         if (file_exists($lang_path)) {
             $string = file_get_contents($lang_path);
-            $lang = json_decode($string, true);
-
-            $this->lang = $lang;
+            return json_decode($string, true);
         }
     }
 

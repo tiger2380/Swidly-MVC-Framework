@@ -1,13 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Swidly\Core;
 
 class Request
 {
-    protected $request = array();
-    protected $server = null;
-    protected $user = null;
-    public $vars = array();
+    protected array $request = array();
+    protected ?array $server = null;
+    protected ?object $user = null;
+    public array $vars = array();
+    /**
+     * @var mixed|void
+     */
+    private bool $is_authenticated = false;
 
     public function __construct()
     {
@@ -28,10 +34,11 @@ class Request
     }
 
     public function get($key, $defaultValue = null) {
-        return isset($this->request[$key]) ? $this->request[$key] : $defaultValue;
+        return $this->request[$key] ?? $defaultValue;
     }
 
-    protected function getUser() {
+    protected function getUser(): ?object
+    {
         $response = null;
         if($this->is_authenticated) {
             $user = DB::Table(Swidly::getConfig('user::table'))->Select()->WhereOnce([Swidly::getConfig('user::auth_field') => Store::get(Swidly::getConfig('session_name'))]);
@@ -51,15 +58,18 @@ class Request
         return $this->server['REQUEST_METHOD'];
     }
 
-    public function isPost() {
+    public function isPost(): bool
+    {
         return $this->getType() === 'POST';
     }
 
-    public function isGet() {
+    public function isGet(): bool
+    {
         return $this->getType() === 'GET';
     }
 
-    public function CheckAuthentication() {
+    public function CheckAuthentication(): void
+    {
         $this->vars['is_authenticated'] = isset($_SESSION[Swidly::getConfig('session_name')]);
     }
 
@@ -73,7 +83,8 @@ class Request
         $this->vars[$key] = $value;
     }
 
-    public function getBody() {
+    public function getBody(): array
+    {
         $body = [];
 
         if($this->isPost()) {

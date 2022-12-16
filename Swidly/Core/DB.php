@@ -25,7 +25,7 @@ class DB
     protected function __construct() {}
     protected function __clone() {}
 
-    public static function instance()
+    public static function instance(): ?\PDO
     {
         if (self::$conn === null)
         {
@@ -45,6 +45,9 @@ class DB
         return self::$conn;
     }
 
+    /**
+     * @throws SwidlyException
+     */
     public function run(array $args = [])
     {
         if (!self::$conn) {
@@ -83,12 +86,17 @@ class DB
         self::$sql = [];
     }
 
-    public static function Sql($sql = '') {
+    public static function Sql($sql = ''): DB
+    {
         self::$sql[] = $sql;
         return new self;
     }
 
-    public function All($args = []) {
+    /**
+     * @throws SwidlyException
+     */
+    public function All($args = []): bool|array
+    {
         if($result = $this->run($args)) {
             $data = $result->fetchAll(\PDO::FETCH_OBJ);
 
@@ -102,7 +110,11 @@ class DB
         }
     }
 
-    public function Once($args = []) {
+    /**
+     * @throws SwidlyException
+     */
+    public function Once($args = []): array | bool
+    {
         if($result = $this->run($args)) {
             $data = $result->fetch(\PDO::FETCH_OBJ);
 
@@ -128,7 +140,8 @@ class DB
         return self::$instance;
     }
 
-    public function Where($criteria) {
+    public function Where($criteria): bool|array
+    {
         $keys = array_keys($criteria);
         $whereClause = '';
         foreach($keys as $key) {
@@ -139,7 +152,8 @@ class DB
         return $this->All(array_values($criteria));
     }
 
-    public function WhereOnce($criteria) {
+    public function WhereOnce($criteria): bool|array
+    {
         $keys = array_keys($criteria);
         $whereClause = '';
         foreach($keys as $key) {
@@ -160,7 +174,7 @@ class DB
         $query = '';
         foreach($args as $key => $value) {
             $query .= $key." = ?, ";
-            array_push($this->values, $value);
+            $this->values[] = $value;
         }
 
         self::$sql[] = rtrim($query, ', ');
@@ -168,14 +182,18 @@ class DB
         return self::$instance;
     }
 
-    public function Insert($args = []) {
+    /**
+     * @throws SwidlyException
+     */
+    public function Insert($args = []): ?bool
+    {
         self::$sql[] = "INSERT INTO ". self::$table ." ";
         $values = '(';
         $cols = '(';
         foreach($args as $key => $value) {
             $cols .= $key.", ";
             $values .= '?, ';
-            array_push($this->values, $value);
+            $this->values[] = $value;
         }
 
         $cols = rtrim($cols, ', '). ") ";
@@ -188,7 +206,8 @@ class DB
         return $this->run();
     }
 
-    public static function Table($table = '') {
+    public static function Table($table = ''): bool|DB|null
+    {
         if(empty($table)) return false;
 
         self::$table = $table;
@@ -204,7 +223,8 @@ class DB
         return self::$instance;
     }
 
-    public static function Query($sql, $params = []) {
+    public static function Query($sql, $params = []): array
+    {
         return [$sql => $params];
     }
 }

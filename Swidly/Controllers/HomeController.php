@@ -6,9 +6,13 @@ namespace Swidly\Controllers;
 
 use Swidly\Core\Controller;
 use Swidly\Core\Attributes\Route;
+use Swidly\Core\SwidlyException;
 
 class HomeController extends Controller {
 
+    /**
+     * @throws SwidlyException
+     */
     #[Route(methods: ['GET'], path: ['/', '/home'])]
     function Index($req, $res) {
         $this->render('home', 
@@ -18,11 +22,17 @@ class HomeController extends Controller {
         ]);
     }
 
+    /**
+     * @throws SwidlyException
+     */
     #[Route(methods: 'GET', path: '/about')]
     function About($req, $res) {
         $this->render('about', ['title' => 'About Page']);
     }
 
+    /**
+     * @throws SwidlyException
+     */
     #[Route(methods: 'GET', path: '/contact')]
     function Contact($req, $res) {
         $this->render('contact', ['title' => 'Contact Page']);

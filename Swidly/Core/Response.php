@@ -2,23 +2,27 @@
 
 namespace Swidly\Core;
 
+use JetBrains\PhpStorm\NoReturn;
+
 define('RESPOND_WITH_REQUEST', FALSE);
 
 class Response
 {
-    private $statusCode = 'HTTP/1.1 200 OK';
-    private $headers = [];
-    private $messages = [];
-    private $data = [];
-    private $content = '';
+    private string $statusCode = 'HTTP/1.1 200 OK';
+    private array $headers = [];
+    private array $messages = [];
+    private array $data = [];
+    private string $content = '';
 
-    public function addHeader($name, $value){
+    public function addHeader($name, $value): static
+    {
         $this->headers[$name][] = $value;
 
         return $this;
     }
 
-    public function setHeader($name, $value){
+    public function setHeader($name, $value): static
+    {
         $this->headers[$name] = [
             (string) $value,
         ];
@@ -26,6 +30,7 @@ class Response
         return $this;
     }
 
+    #[NoReturn]
     public function redirect($url, $referrer = null){
         if($referrer) {
             $referrer = urlencode($referrer);
@@ -41,31 +46,36 @@ class Response
         exit();
     }
 
-    public function setContent(string $content) {
+    public function setContent(string $content): static
+    {
         $this->content = $content;
 
         return $this;
     }
 
-    public function addData($name, $data) {
+    public function addData($name, $data): static
+    {
         $this->data[$name] = $data;
 
         return $this;
     }
 
-    public function addMessage($subject, $message) {
+    public function addMessage($subject, $message): static
+    {
         $this->messages[$subject] = $message;
 
         return $this;
     }
 
-    public function setStatus(int $code) {
+    public function setStatus(int $code): static
+    {
         $this->statusCode = $code;
 
         return $this;
     }
 
-    public function content() {
+    public function content(): void
+    {
         foreach($this->headers as $header){
 			header($header,true);
 		};
@@ -73,7 +83,9 @@ class Response
         echo $this->content;
     }
 
-    public function json() {
+    #[NoReturn]
+    public function json(): void
+    {
         // Clear output buffer
 		ob_clean();
 		ob_start();
@@ -106,7 +118,8 @@ class Response
 		die();
     }
 
-    public static function setStatusCode(int $code){
+    public static function setStatusCode(int $code): bool|int
+    {
         return http_response_code($code);
     }
 }
