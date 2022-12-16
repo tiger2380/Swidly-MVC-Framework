@@ -9,7 +9,6 @@ class Controller
     public ?object $app = null;
     public mixed $model = null;
     public array $vars = [];
-    private mixed $lang;
 
     public function __construct()
     {
@@ -81,7 +80,7 @@ class Controller
         }, $str);
     }
 
-    protected function getLanguage()
+    protected function getLanguage(): void
     {
         global $app;
 
@@ -90,7 +89,7 @@ class Controller
 
         if (file_exists($lang_path)) {
             $string = file_get_contents($lang_path);
-            return json_decode($string, true);
+            $this->lang =  json_decode($string, true);
         }
     }
 
