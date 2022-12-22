@@ -35,10 +35,10 @@ class Swidly {
 
     /**
      * @param string $key
-     * @param string $value
+     * @param string|\Closure $value
      * @return $this
      */
-    public function get(string $key, string $value): self {
+    public function get(string $key, string|\Closure $value): self {
         $this->router->get($key, $value);
         $this->next = $key;
         return $this;
@@ -46,10 +46,10 @@ class Swidly {
 
     /**
      * @param string $key
-     * @param string $value
+     * @param string|\Closure $value
      * @return $this
      */
-    public function post(string $key, string $value): self {
+    public function post(string $key, string|\Closure $value): self {
         $this->router->post($key, $value);
         $this->next = $key;
         return $this;
@@ -57,10 +57,10 @@ class Swidly {
 
     /**
      * @param string $key
-     * @param string $value
+     * @param string|\Closure $value
      * @return $this
      */
-    public function delete(string $key, string $value): self {
+    public function delete(string $key, string|\Closure $value): self {
         $this->router->delete($key, $value);
         $this->next = $key;
         return $this;
@@ -68,10 +68,10 @@ class Swidly {
 
     /**
      * @param string $key
-     * @param string $value
+     * @param string|\Closure $value
      * @return $this
      */
-    public function put(string $key, string $value): self {
+    public function put(string $key, string|\Closure $value): self {
         $this->router->put($key, $value);
         $this->next = $key;
         return $this;
