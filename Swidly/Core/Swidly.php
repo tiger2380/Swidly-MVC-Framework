@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Swidly\Core;
 
+use ReflectionClass;
+use ReflectionException;
+use ReflectionMethod;
 use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Attributes\Route;
 
@@ -14,8 +17,13 @@ class Swidly {
     protected ?string $next = null;
     protected bool $isSinglePage = false;
 
+    /**
+     * @param Response $response
+     * @param Form $form
+     * @param Request $request
+     * @param Router $router
+     */
     public function __construct(
-        private readonly Container $container = new Container,
         public Response            $response = new Response,
         public Form                $form = new Form(),
         protected Request          $request = new Request,
@@ -25,48 +33,75 @@ class Swidly {
         $this->isSinglePage = self::getConfig('app::single_page', false);
     }
 
-    public function get($key, $value): self {
+    /**
+     * @param string $key
+     * @param string $value
+     * @return $this
+     */
+    public function get(string $key, string $value): self {
         $this->router->get($key, $value);
         $this->next = $key;
         return $this;
     }
 
-    public function post($key, $value): self {
+    /**
+     * @param string $key
+     * @param string $value
+     * @return $this
+     */
+    public function post(string $key, string $value): self {
         $this->router->post($key, $value);
         $this->next = $key;
         return $this;
     }
 
-    public function delete($key, $value): self {
+    /**
+     * @param string $key
+     * @param string $value
+     * @return $this
+     */
+    public function delete(string $key, string $value): self {
         $this->router->delete($key, $value);
         $this->next = $key;
         return $this;
     }
 
-    public function put($key, $value): self {
+    /**
+     * @param string $key
+     * @param string $value
+     * @return $this
+     */
+    public function put(string $key, string $value): self {
         $this->router->put($key, $value);
         $this->next = $key;
         return $this;
     }
 
-    public function container($key, $value = null) {
-        if(isset($value)) {
-            $this->container->set($key, $value);
-        } else {
-            return $this->container->get($key);
-        }
-    }
-
-    public function name($routeName): self {
+    /**
+     * @param string $routeName
+     * @return $this
+     */
+    public function name(string $routeName): self {
         self::$routeNames[$routeName] = stripQuestionMarks($this->next);
         return $this;
     }
 
-    public function registerMiddleware($middleware): self {
+    /**
+     * @param Callable|string $middleware
+     * @return $this
+     */
+    public function registerMiddleware(\Callable|string $middleware): self {
         self::$middlewares[stripQuestionMarks($this->next)][] = $middleware;
         return $this;
     }
 
+    /**
+     * @param string|array $methods
+     * @param string|array $paths
+     * @param string|callable $callback
+     * @param string|null $routeName
+     * @return void
+     */
     public function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void {
         if (is_array($methods)) {
             foreach ($methods as $method) {
@@ -94,7 +129,11 @@ class Swidly {
         }
     }
 
-    public function registerRoutes(\ReflectionClass $reflectionClass): void
+    /**
+     * @param ReflectionClass $reflectionClass
+     * @return void
+     */
+    public function registerRoutes(ReflectionClass $reflectionClass): void
     {
         $className = $reflectionClass->getName();
         $methods = $reflectionClass->getMethods();
@@ -114,7 +153,12 @@ class Swidly {
         }
     }
 
-    public function registerMiddlewares($method, $paths): void
+    /**
+     * @param ReflectionMethod $method
+     * @param array|string $paths
+     * @return void
+     */
+    public function registerMiddlewares(ReflectionMethod $method, array|string $paths): void
     {
         $attributes = $method->getAttributes(Middleware::class);
         
@@ -136,18 +180,24 @@ class Swidly {
         }
     }
 
+    /**
+     * @return bool
+     */
     static public function isSinglePage(): bool
     {
         return Swidly::getConfig('app::single_page', false) === true;
     }
 
+    /**
+     * @return bool
+     */
     static public function isRequestJson(): bool
     {
         return (new Request)->get('HTTP_CONTENT_TYPE') === 'application/json';
     }
 
     /**
-     * @throws \ReflectionException
+     * @throws ReflectionException
      */
     public function run(): void {
         if(file_exists(APP_PATH.'/routes.php')) {
@@ -167,7 +217,7 @@ class Swidly {
     }
 
     /**
-     * @throws \ReflectionException
+     * @throws ReflectionException
      */
     public function loadControllerRoutes(): void
     {
@@ -180,8 +230,11 @@ class Swidly {
         }
     }
 
-
-    static function activeLink($page = null): void {
+    /**
+     * @param string|null $page
+     * @return void
+     */
+    static function activeLink(?string $page = null): void {
         $result = '';
         $self = new self;
         if(isset($page)) {
@@ -193,7 +246,11 @@ class Swidly {
         echo $result;
     }
 
-    public function getNameByURL($url): array {
+    /**
+     * @param string $url
+     * @return array
+     */
+    public function getNameByURL(string $url): array {
         $values = array_reverse(Swidly::$routeNames);
         global $base_url;
         
@@ -204,6 +261,11 @@ class Swidly {
         return reset($newArray);
     }
 
+    /**
+     * @param string $name
+     * @param array $params
+     * @return string
+     */
     static function path(string $name, array $params = []) : string {
         global $base_url;
         $add_params = '';
@@ -222,7 +284,12 @@ class Swidly {
             return '';
         }
     }
-    
+
+    /**
+     * @param string $name
+     * @param mixed $default
+     * @return mixed
+     */
     static function getConfig(string $name, mixed $default = ''): mixed {
         if(!isset(Swidly::$config)) {
             Swidly::$config = parseArray(require_once('Config.php'));
@@ -235,10 +302,18 @@ class Swidly {
         }
     }
 
-    static function cleanPath($path): string {
+    /**
+     * @param string $path
+     * @return string
+     */
+    static function cleanPath(string $path): string {
         return file_exists($path) ? $path : '';
     }
 
+    /**
+     * @return array
+     * @throws SwidlyException
+     */
     static function themePath(): array
     {
         $themeName = self::getConfig('theme', 'default');
@@ -258,7 +333,12 @@ class Swidly {
         ];
     }
 
-    static function load_js_module($name): void {
+    /**
+     * @param string $name
+     * @return void
+     * @throws SwidlyException
+     */
+    static function load_js_module(string $name): void {
         if(filter_var($name, FILTER_VALIDATE_URL)) {
             echo '<script type="text/javascript" src="'. $name .'"></script>';
         } else {
@@ -287,24 +367,33 @@ class Swidly {
             }
         }
         
-        throw new AppException('Unable to load module');
+        throw new SwidlyException('Unable to load module');
     }
 
+    /**
+     * @return void
+     * @throws SwidlyException
+     */
     static function load_single_page() {
         $core_js = APP_CORE.'/scripts/app.js';
         if(file_exists($core_js)) {
             $core_js_path = '/Swidly/Core/scripts/app.js';
             echo '<script type="module" defer src="'.$core_js_path.'"></script>';
-            return;
+            exit;
         }
 
-        throw new AppException('Unable to load core js', 400);
+        throw new SwidlyException('Unable to load core js', 400);
     }
 
-    static function load_stylesheet_module($name) {
+    /**
+     * @param string $name
+     * @return void
+     * @throws SwidlyException
+     */
+    static function load_stylesheet_module(string $name):void {
         if(filter_var($name, FILTER_VALIDATE_URL)) {
             echo '<link rel="stylesheet" href="'. $name .'">';
-            return;
+            exit;
         } else {
             $themePath = self::themePath();
             $cssDir = $themePath['base'].'/css';
@@ -327,13 +416,17 @@ class Swidly {
                 if(!empty($cssFile)) {
                     echo '<link rel="stylesheet" href="'. $url.'/css/'.( isset($dir) ? $dir.'/' : '' ).$parsed_file['basename'].'?t='. time() .'">';
                 }
-                return;
+                exit;
             }
         }
         
-        throw new \Exception('Unable to load module');
+        throw new SwidlyException('Unable to load module');
     }
 
+    /**
+     * @param array $pages
+     * @return bool
+     */
     static function hideOnPage(array $pages = []) {
         $self = new self();
         $path = $self->request->get('path', '/');
