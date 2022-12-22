@@ -379,7 +379,7 @@ class Swidly {
         if(file_exists($core_js)) {
             $core_js_path = '/Swidly/Core/scripts/app.js';
             echo '<script type="module" defer src="'.$core_js_path.'"></script>';
-            exit;
+            return;
         }
 
         throw new SwidlyException('Unable to load core js', 400);
@@ -393,7 +393,7 @@ class Swidly {
     static function load_stylesheet_module(string $name):void {
         if(filter_var($name, FILTER_VALIDATE_URL)) {
             echo '<link rel="stylesheet" href="'. $name .'">';
-            exit;
+            return;
         } else {
             $themePath = self::themePath();
             $cssDir = $themePath['base'].'/css';
@@ -416,7 +416,7 @@ class Swidly {
                 if(!empty($cssFile)) {
                     echo '<link rel="stylesheet" href="'. $url.'/css/'.( isset($dir) ? $dir.'/' : '' ).$parsed_file['basename'].'?t='. time() .'">';
                 }
-                exit;
+                return;
             }
         }
         

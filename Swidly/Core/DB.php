@@ -113,7 +113,7 @@ class DB
     /**
      * @throws SwidlyException
      */
-    public function Once($args = []): array | bool
+    public function Once($args = []): \stdClass | bool
     {
         if($result = $this->run($args)) {
             $data = $result->fetch(\PDO::FETCH_OBJ);
@@ -152,7 +152,7 @@ class DB
         return $this->All(array_values($criteria));
     }
 
-    public function WhereOnce($criteria): bool|array
+    public function WhereOnce($criteria): \stdClass | array
     {
         $keys = array_keys($criteria);
         $whereClause = '';
