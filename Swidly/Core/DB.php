@@ -185,7 +185,7 @@ class DB
     /**
      * @throws SwidlyException
      */
-    public function Insert($args = []): ?bool
+    public function Insert($args = []): \PDOStatement | bool
     {
         self::$sql[] = "INSERT INTO ". self::$table ." ";
         $values = '(';

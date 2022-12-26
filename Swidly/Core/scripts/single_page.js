@@ -78,13 +78,16 @@ export default class SinglePage {
     async #addSubmitListener(element) {
         element.addEventListener('submit', async (event) => {
             event.preventDefault();
-            console.log(event);
             const path = event.target.getAttribute('action');
             const formData = new FormData(event.target);
 
-            const reponse = await this.fetchData(path, {title: 'Test Title', content: 'this is a test body'}, 'POST');
+            for (const value of formData.keys()) {
+                console.log(value);
+            }
 
-            console.log(reponse);
+            const response = await this.fetchData(path, formData, 'POST');
+
+            this.emit('formSubmitted', response);
         });
     }
 
@@ -134,13 +137,17 @@ export default class SinglePage {
         const options = {
             method: requestType.toUpperCase(),
             cache: 'no-cache',
-            headers: {
-                'Content-Type': 'application/json'
-            }
         };
 
         if ('post' === requestType.toLowerCase()) {
-            options.body = JSON.stringify(data);
+            if (!data instanceof FormData) {
+                data = JSON.stringify(data);
+            }
+            options.body = data;
+        } else {
+            options.headers = {
+                'Content-Type': 'application/json'
+            };
         }
 
         const request = new Request(path, options);

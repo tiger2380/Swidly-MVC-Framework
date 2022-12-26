@@ -36,4 +36,8 @@ const options = {
 
 window.addEventListener('DOMContentLoaded', () => {
     window.SinglePage = new SinglePage(options);
+
+    window.SinglePage.on('formSubmitted', (response) => {
+       console.log(response);
+    });
 });
