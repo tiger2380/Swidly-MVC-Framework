@@ -2,7 +2,7 @@
 
 return [
     'app' => [
-        'title' =>'Not Another PHP MVC',
+        'title' =>'',
         'favicon' => '',
         'description' => '',
         'single_page' => true
@@ -10,10 +10,10 @@ return [
     'default_lang' => 'en',
     'theme' => 'single_page',
     'db' => [
-        'host'     => '127.0.0.1',
-        'database' => 'blog',
-        'username' => 'tbibbs',
-        'password' => 'password',
+        'host'     => '',
+        'database' => '',
+        'username' => '',
+        'password' => '',
         'charset' => 'utf8mb4',
         'collation' => 'utf8mb4_unicode_ci',
         'prefix' => '',

@@ -197,6 +197,15 @@ class Swidly {
     }
 
     /**
+     * @return bool
+     */
+    static public function isFormRequest(): bool
+    {
+        $contentType = (new Request())->get('HTTP_CONTENT_TYPE');
+        return false !== strpos($contentType, 'multipart/form-data;');
+    }
+
+    /**
      * @throws ReflectionException
      */
     public function run(): void {

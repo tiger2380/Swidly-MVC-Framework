@@ -38,6 +38,8 @@ window.addEventListener('DOMContentLoaded', () => {
     window.SinglePage = new SinglePage(options);
 
     window.SinglePage.on('formSubmitted', (response) => {
-       console.log(response);
+       const {data} = JSON.parse(response);
+       
+       alert(data.message);
     });
 });

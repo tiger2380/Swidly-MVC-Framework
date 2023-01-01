@@ -50,6 +50,7 @@ class Controller
         $content = ob_get_clean();
 
         $parsedContent = self::parse($content);
+
         if(Swidly::isSinglePage() && Swidly::isRequestJson()) {
             $response = new Response();
             $response->addData('content', $parsedContent);

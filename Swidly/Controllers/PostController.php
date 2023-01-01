@@ -12,6 +12,11 @@ use Swidly\Middleware\AuthMiddleware;
         #[Route('GET', '/posts')]
         function Index($req, $res) {
             $posts = $this->model->findAll();
+
+            usort($posts, function ($item1, $item2) {
+                return $item2->getId() <=> $item1->getId();
+            });
+
             $this->render('post', ['posts' => $posts, 'title' => 'Posts']);
         }
 
@@ -20,9 +25,18 @@ use Swidly\Middleware\AuthMiddleware;
             $post = new PostModel();
             $post->setTitle($req->get('title'));
             $post->setBody($req->get('content'));
-            $post->setCreatedAt('2022-11-11 02:46:00');
+            $date = date('Y-m-d H:i:s');
+            $post->setCreatedAt($date);
 
-            $post->save();
+            if($post->save()) {
+                $res->addData('message', 'Saved Successfully');
+                $res->addData('status', true);
+            } else {
+                $res->addData('message', 'Unable to save data');
+                $res->addData('status', false);
+            }
+            
+            $res->json();
         }
 
         #[Middleware(AuthMiddleware::class)]

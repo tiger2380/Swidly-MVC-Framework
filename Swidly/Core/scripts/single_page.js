@@ -60,7 +60,7 @@ export default class SinglePage {
         if(this.#events.has(evt)) {
             const callbacks = this.#events.get(evt);
             callbacks.forEach(callback => {
-                callback.apply(this. args);
+                callback.apply(this, args);
             });
         }
     }
@@ -81,13 +81,9 @@ export default class SinglePage {
             const path = event.target.getAttribute('action');
             const formData = new FormData(event.target);
 
-            for (const value of formData.keys()) {
-                console.log(value);
-            }
-
             const response = await this.fetchData(path, formData, 'POST');
 
-            this.emit('formSubmitted', response);
+            this.emit('formSubmitted', JSON.stringify(response));
         });
     }
 
@@ -156,7 +152,7 @@ export default class SinglePage {
         return await response.json();
     }
 
-    #addPadding(string) {
-        return string.padStart(1, ' ').padEnd(1, ' ');
+    #addPadding(string, length) {
+        return string.padStart(length, ' ').padEnd(length, ' ');
     }
 }

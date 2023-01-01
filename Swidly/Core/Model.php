@@ -95,13 +95,17 @@ class Model {
             $data[$key] = $this->{$prop}();
         }
 
-        if((int) $data[$idField] === 0) {
-            DB::Table($entity)->Insert($data);
-        } else {
-            DB::Table($entity)->Update($data)->WhereOnce([$idField => $data[$this->idField]]);
-        }
+        try {
+            if((int) $data[$idField] === 0) {
+                DB::Table($entity)->Insert($data);
+            } else {
+                DB::Table($entity)->Update($data)->WhereOnce([$idField => $data[$this->idField]]);
+            }
 
-        return true;
+            return true;
+        } catch(SwidlyException $ex) {
+            return false;
+        }
     }
 
     public function getColumnProperty(): array
