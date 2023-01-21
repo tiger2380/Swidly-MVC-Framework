@@ -1,3 +1,38 @@
+class UseState {
+    _state = [];
+
+    constructor(initValue = null) {
+        this._state[0] = initValue;
+    }
+
+    get state() {
+        return this._state;
+    }
+
+    setState(value) {
+       this.state[0] = value;
+    }
+
+    create_UUID(){
+        var dt = new Date().getTime();
+        var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = (dt + Math.random()*16)%16 | 0;
+            dt = Math.floor(dt/16);
+            return (c=='x' ? r :(r&0x3|0x8)).toString(16);
+        });
+        return uuid;
+    }
+};
+
+export function useState(initValue = null) {
+    let state = new UseState(initValue);
+
+    return [
+        state.state,
+        state.setState.bind(state)
+    ]
+}
+
 export default class SinglePage {
     #events = new Map();
 

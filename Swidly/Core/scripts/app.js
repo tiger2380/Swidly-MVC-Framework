@@ -1,4 +1,4 @@
-import SinglePage from "./single_page.js";
+import SinglePage, { useState } from "./single_page.js";
 
 const options = {
     'onBeforeFetch': () => {
