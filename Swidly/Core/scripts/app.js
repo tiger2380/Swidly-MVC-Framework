@@ -31,15 +31,21 @@ const options = {
             }, 1000);
         }
     },
-    'delimiter': '🐅'
+    'delimiter': '🕹️'
 };
 
 window.addEventListener('DOMContentLoaded', () => {
     window.SinglePage = new SinglePage(options);
+    const [counter, setCounter] = useState(0);
+    console.log(counter);
+    setCounter(10);
+    console.log(counter);
+    setCounter(11);
+    console.log(counter);
 
     window.SinglePage.on('formSubmitted', (response) => {
        const {data} = JSON.parse(response);
-       
+
        alert(data.message);
     });
 });
