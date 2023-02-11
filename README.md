@@ -1,4 +1,4 @@
-# Welcome to 'Not Another' PHP MVC Framework
+# Welcome to Swidly PHP MVC Framework
 
 This is a small, simple yet powerful PHP MVC Framework built with vanilla PHP using no frameworks. My goal is to make a self-contain MVC that doesn't depend on any 3rd parties. No installation/composer require. I'm trying my best to lower the learning curve when it comes to MVC. 
 
