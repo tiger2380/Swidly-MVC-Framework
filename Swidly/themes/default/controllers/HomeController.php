@@ -28,7 +28,6 @@ class HomeController extends Controller {
     #[Route(methods: 'GET', path: '/about')]
     function About($req, $res) {
         $model = $this->getModel('PostModel');
-        dump($model->table);
         $this->render('about', ['title' => 'About Page']);
     }
 
