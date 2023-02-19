@@ -5,10 +5,10 @@ return [
         'title' =>'Not Another PHP MVC',
         'favicon' => '',
         'description' => '',
-        'single_page' => true
+        'single_page' => false
     ],
     'default_lang' => 'en',
-    'theme' => 'single_page',
+    'theme' => 'default',
     'db' => [
         'host'     => '127.0.0.1',
         'database' => 'blog',

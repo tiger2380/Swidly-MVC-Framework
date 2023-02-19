@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Swidly\Controllers;
+namespace Swidly\themes\default\controllers;
 
 use Swidly\Core\Controller;
 use Swidly\Core\Attributes\Route;
@@ -27,6 +27,8 @@ class HomeController extends Controller {
      */
     #[Route(methods: 'GET', path: '/about')]
     function About($req, $res) {
+        $model = $this->getModel('PostModel');
+        dump($model->table);
         $this->render('about', ['title' => 'About Page']);
     }
 

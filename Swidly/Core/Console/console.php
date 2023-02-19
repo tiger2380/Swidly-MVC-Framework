@@ -221,11 +221,11 @@ STR;
 
 function getEntities() {
     $entities = [];
-    $models = array_diff(scandir(ROOTDIR.'/../Models/'), array('.', '..'));
+    $models = array_diff(scandir(ROOTDIR.'/../models/'), array('.', '..'));
     $modelFilenames = array_map(fn($model) => pathinfo($model)['filename'], $models);
 
     foreach ($modelFilenames as $model) {
-        $class = 'Models/'.$model;
+        $class = 'models/'.$model;
         $dir = ROOTDIR.'/../'.$class.'.php';
         if(file_exists($dir)) {
             $className = 'Swidly\Models\\'.$model;

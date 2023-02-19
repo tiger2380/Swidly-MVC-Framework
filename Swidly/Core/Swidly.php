@@ -230,11 +230,14 @@ class Swidly {
      */
     public function loadControllerRoutes(): void
     {
-        $controllers = array_diff(scandir(APP_PATH.'/Controllers/'), array('.', '..'));
+        $theme = self::getConfig('theme', 'default');
+        $controllerRootPath = 'Swidly/themes/'. $theme;
+        $controllerPath = $controllerRootPath .'//controllers/';
+        $controllers = array_diff(scandir($controllerPath), array('.', '..'));
         $controllerFilenames = array_map(fn($controller) => pathinfo($controller)['filename'], $controllers);
 
         foreach ($controllerFilenames as $controller) {
-            $class = '\Swidly\Controllers\\'.$controller;
+            $class = str_replace('/', '\\', $controllerRootPath).'\\controllers\\'.$controller;
             $this->registerRoutes(new \ReflectionClass($class));
         }
     }

@@ -29,7 +29,7 @@ You can access the settings in your code by: `Swidly::getConfig('db::host')`. Yo
 
 ## Routing
 
-The [Router](Swidly/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](Swidly/Controllers/HomeController.php).
+The [Router](Swidly/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](Swidly/themes/default/controllers/HomeController.php).
 
 Routes are located in the [Swidly/routes.php](Swidly/routes.php) file
 
@@ -120,7 +120,7 @@ Middlewares can be stored in the [Swidly/Middleware](Swidly/Middleware) director
 ## Controllers
 Controllers respond to user actions (clicking on a link, submitting a form etc.). Controllers are classes that extend the [Swidly\Core\Controller](Swidly/Core/Controller.php) class.
 
-Controllers are stored in the `Swidly/Controllers` folder. A sample [Home controller](Swidly/Controllers/HomeController.php) is included. Controller classes need to be in the `Swidly/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
+Controllers are stored in the `Swidly/Controllers` folder. A sample [Home controller](Swidly/themes/default/controllers/HomeController.php) is included. Controller classes need to be in the `Swidly/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
 
 Controller classes contain methods that are the actions. To create an action, add the **`Action`** suffix to the method name. The sample controller in [Swidly/Controllers/HomeController.php](Swidly/Controllers/HomeController.php) has a sample `index` action.
 
@@ -183,6 +183,7 @@ This is example how to insert new data into the database
 ```
 
 Insert data using an entity for example `PostModel`.
+
 ```php
 #[Route('POST', '/posts/add', 'addPost')]
 function AddPost($req, $res) {

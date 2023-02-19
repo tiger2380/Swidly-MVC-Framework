@@ -1,8 +1,8 @@
 <?php
-    namespace Swidly\Controllers;
+    namespace Swidly\themes\default\controllers;
 
-    use Swidly\Core\Controller;
     use Swidly\Core\Attributes\Route;
+    use Swidly\Core\Controller;
 
     class LoginController extends Controller {
         #[Route('GET', '/login')]

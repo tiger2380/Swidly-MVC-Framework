@@ -1,14 +1,12 @@
 <?php
 
-namespace Swidly\Models;
-
 use Swidly\Core\Model;
 use Swidly\Core\Attributes\Table;
 use Swidly\Core\Attributes\Column;
 use Swidly\Core\Enums\Types;
 
-#[Table(name: 'blog')]
-class BlogModel extends Model {
+#[Table(name: 'post')]
+class PostModel extends Model {
     #[Column(type: Types::INTEGER, isPrimary: true)]
     public int $id;
 
@@ -18,7 +16,7 @@ class BlogModel extends Model {
     #[Column(type: Types::DATETIME)]
     private string $createdAt;
 
-    #[Column(type: Types::STRING, nullable: true)]
+    #[Column(type: Types::STRING)]
     private string $body;
 
     public function getId(): int {

@@ -1,11 +1,11 @@
 <?php
 
-namespace Swidly\Models;
+namespace Swidly\themes\default\models;
 
-use Swidly\Core\Model;
-use Swidly\Core\Attributes\Table;
 use Swidly\Core\Attributes\Column;
+use Swidly\Core\Attributes\Table;
 use Swidly\Core\Enums\Types;
+use Swidly\Core\Model;
 
 #[Table(name: 'users')]
 class UserModel extends Model {

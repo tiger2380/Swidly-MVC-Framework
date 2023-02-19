@@ -14,14 +14,33 @@ class Controller
     {
         global $app;
         $this->app = $app;
+    }
 
-        $class = get_class($this);
-        $modelName = str_ireplace('Controller', 'Model', $class);
-        
-        if(class_exists($modelName)) {
-            $model = new $modelName();
-            $this->model = $model;
+    public function getModel(string $model): Model | bool {
+        $themePath = Swidly::themePath()['base'];
+        $modelDir = glob($themePath.'/models')[0];
+        $modelFile = $modelDir.'/'.$model;
+
+        if (file_exists($modelFile.'.php')) {
+            require_once $modelFile.'.php';
+            $classes = get_declared_classes();
+            $modelClass = current(array_filter(
+                $classes,
+                function($value) use($model) {
+                    if (strpos($value, '\\')) {
+                        return substr($value, strrpos($value, '\\') + 1, strlen($value)) == $model;
+                    } elseif ($value == $model) {
+                        return true;
+                    }
+
+                    return false;
+                }
+            ));
+
+            return new $modelClass;
         }
+
+        return false;
     }
 
     /**
@@ -74,7 +93,7 @@ class Controller
     protected function parse(string $str = null): array|string|null
     {
         $vars = $this->vars;
-        return preg_replace_callback('|{([a-zA-Z0-9_\:]+)}|', function ($matches) use ($vars) {
+        return preg_replace_callback('|{([a-zA-Z0-9_:]+)}|', function ($matches) use ($vars) {
             $word = $vars[$matches[1]] ?? ($vars['lang'][$matches[1]] ?? '');
 
             return isset($word) ? $this->parse($word) : '';
