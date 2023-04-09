@@ -8,7 +8,7 @@ return [
         'single_page' => false
     ],
     'default_lang' => 'en',
-    'theme' => 'default',
+    'theme' => 'single_page',
     'db' => [
         'host'     => '127.0.0.1',
         'database' => 'blog',

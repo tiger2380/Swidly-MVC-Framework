@@ -185,7 +185,8 @@ class Swidly {
      */
     static public function isSinglePage(): bool
     {
-        return Swidly::getConfig('app::single_page', false) === true;
+        $info = self::getThemeInfo();
+        return $info['single_page'] === true;
     }
 
     /**
@@ -326,7 +327,7 @@ class Swidly {
      * @return array
      * @throws SwidlyException
      */
-    static function themePath(): array
+    static function theme(): array
     {
         $themeName = self::getConfig('theme', 'default');
         $themePath = APP_PATH.'/themes/'.$themeName;
@@ -336,11 +337,12 @@ class Swidly {
         }
         $dir = $themePath;
         $url = self::getConfig('url').'/Swidly/themes/'.$themeName;
+
         return [
             'name' => $themeName,
             'base' => $dir,
             'url' => $url,
-            'info' => self::cleanPath($dir.'/'.$themeName.'.info'),
+            'info' => self::cleanPath($dir.'/theme.php'),
             'screenshot' => self::cleanPath($dir.'/screenshot.png'),
         ];
     }
@@ -354,7 +356,7 @@ class Swidly {
         if(filter_var($name, FILTER_VALIDATE_URL)) {
             echo '<script type="text/javascript" src="'. $name .'"></script>';
         } else {
-            $themePath = self::themePath();
+            $themePath = self::theme();
             $jsDir = $themePath['base'].'/js';
             $dir = null;
 
@@ -407,7 +409,7 @@ class Swidly {
             echo '<link rel="stylesheet" href="'. $name .'">';
             return;
         } else {
-            $themePath = self::themePath();
+            $themePath = self::theme();
             $cssDir = $themePath['base'].'/css';
 
             if($pos = strrpos($name, '/')) {
@@ -446,5 +448,28 @@ class Swidly {
             return false;
         }
         return true;
+    }
+
+    static function getThemeInfo(): array
+    {
+        return File::readArray(self::theme()['info']);
+    }
+
+    static function getTitle(): string
+    {
+        $info = self::getThemeInfo();
+        return $info['title'] ?? '';
+    }
+
+    static function getThemeName(): string
+    {
+        $info = self::getThemeInfo();
+        return $info['name'] ?? '';
+    }
+
+    static function getDescription(): string
+    {
+        $info = self::getThemeInfo();
+        return $info['description'] ?? '';
     }
 }

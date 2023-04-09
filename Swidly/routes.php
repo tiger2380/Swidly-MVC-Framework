@@ -3,6 +3,9 @@
 /**
  * Created a route for the API
  */
-$this->get('/api/getVersion', function($req, $res) {
-    echo APP_VERSION;
-});
+
+use Swidly\Middleware\AuthMiddleware;
+
+$this->get('/themes', function($req, $res) {
+    (new \Swidly\Core\Controller())->render('themes');
+})->registerMiddleware(AuthMiddleware::class);

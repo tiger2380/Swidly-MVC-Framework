@@ -26,6 +26,13 @@ class File {
         return json_decode($content, true);
     }
 
+    public static function readArray(string $path): array {
+        if (is_file($path)) {
+            return include $path;
+        }
+        return [];
+    }
+
     /**
      * @param string $source
      * @param string $destination

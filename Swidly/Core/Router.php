@@ -137,7 +137,7 @@ class Router
     public function run_single_page(): void
     {
         try {
-            $basePath = Swidly::themePath()['base'];
+            $basePath = Swidly::theme()['base'];
             require_once $basePath.'/index.php';
         } catch(SwidlyException $ex) {
             Response::setStatusCode($ex->getCode());

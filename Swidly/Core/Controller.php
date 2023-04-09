@@ -17,7 +17,7 @@ class Controller
     }
 
     public function getModel(string $model): Model | bool {
-        $themePath = Swidly::themePath()['base'];
+        $themePath = Swidly::theme()['base'];
         $modelDir = glob($themePath.'/models')[0];
         $modelFile = $modelDir.'/'.$model;
 
@@ -51,7 +51,7 @@ class Controller
      */
     public function render(string $page, array $data = []): void
     {
-        $base = Swidly::themePath()['base'];
+        $base = Swidly::theme()['base'];
         $page = $base.'/views/'.$page.'.php';
         $this->getLanguage();
         extract($data);
@@ -112,6 +112,8 @@ class Controller
             $this->lang =  json_decode($string, true);
         }
     }
+
+
 
     public function __set($key, $value)
     {
