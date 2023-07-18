@@ -1,12 +1,4 @@
 <?php
-
-/**
- * Created a route for the API
- */
-
-use Swidly\Middleware\AuthMiddleware;
-
-$this->get('/sw_admin/themes', function($req, $res) {
     $documentRoot = $_SERVER['DOCUMENT_ROOT'];
     $themesPath = $documentRoot.'/Swidly/themes';
     $themeInfos = [];
@@ -19,8 +11,12 @@ $this->get('/sw_admin/themes', function($req, $res) {
            $themeInfos[] = \Swidly\Core\File::readArray($themeFile);
         }
     }
-
-    $res->addData('themes', $themeInfos);
-
-    $res->json();
-})->registerMiddleware(AuthMiddleware::class);
+?>
+<div>
+    <?php foreach ($themeInfos as $info): ?>
+        <div style="width: 500px; height: auto; border: 1px solid gray; margin-bottom: 2rem;">
+            <img src="<?=$info['screenshot'] ?>" style="width: 100%; height: 250px; object-fit: cover;"/>
+            <h5 style="padding: 0.9rem;"><?= $info['name'] ?></h5>
+        </div>
+    <?php endforeach; ?>
+</div>

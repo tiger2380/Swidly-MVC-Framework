@@ -3,12 +3,18 @@
 
 declare(strict_types=1);
 
+echo php_sapi_name();
+die();
+
+if (php_sapi_name() !== 'cli') {
+    die('This is for console command line only.');
+}
+
 require_once 'formatPrint.php';
 define('ROOTDIR', dirname(dirname(__FILE__)));
 
 require ROOTDIR.'/../../bootstrap.php';
 $routeStr = <<<STR
-
 \$this->get('%s%s', '%sController::Index')
 ->name('%s');
 STR;

@@ -466,10 +466,4 @@ class Swidly {
         $info = self::getThemeInfo();
         return $info['name'] ?? '';
     }
-
-    static function getDescription(): string
-    {
-        $info = self::getThemeInfo();
-        return $info['description'] ?? '';
-    }
 }

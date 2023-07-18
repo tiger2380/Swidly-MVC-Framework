@@ -86,6 +86,11 @@ class Controller
         }
     }
 
+    public function admin_render(string $page, array $data = []): void
+    {
+        echo 'rendering admin';
+    }
+
     /**
      * @param string|null $str
      * @return array|string|null

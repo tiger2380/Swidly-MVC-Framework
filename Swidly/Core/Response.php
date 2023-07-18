@@ -114,7 +114,7 @@ class Response
 		};
 		
 
-		echo json_encode($R);
+		echo json_encode($R, JSON_PRETTY_PRINT);
 		die();
     }
 

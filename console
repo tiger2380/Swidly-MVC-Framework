@@ -3,6 +3,10 @@
 
 declare(strict_types=1);
 
+if (php_sapi_name() !== 'cli') {
+    die('This is for console command line only.');
+}
+
 require_once './Swidly/Core/Console/formatPrint.php';
 
 require 'bootstrap.php';
@@ -17,8 +21,17 @@ $opts = getopt("p::v::o::", ['up:', 'down:'], $rest_index);
 $args = array_slice($args, $rest_index);
 $command = count($args) > 0 ? $args[0] : null;
 
-if(isset($command) && stripos($command, ':') > -1) {
-    list($action, $method) = explode(':', $command);
+$swidly = new \Swidly\Core\SwidlyCommand();
+
+if (!$command) {
+    $swidly->showHelp();
+    exit;
+}
+
+if(isset($command)) {
+    $parts = explode(':', $command);
+
+    call_user_func_array([$swidly, $parts[0]], $args);
 
     if($action === 'make') {
         if($method === 'controller') {

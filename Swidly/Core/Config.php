@@ -8,7 +8,7 @@ return [
         'single_page' => false
     ],
     'default_lang' => 'en',
-    'theme' => 'single_page',
+    'theme' => 'default',
     'db' => [
         'host'     => '127.0.0.1',
         'database' => 'blog',
@@ -17,10 +17,6 @@ return [
         'charset' => 'utf8mb4',
         'collation' => 'utf8mb4_unicode_ci',
         'prefix' => '',
-    ],
-    'user' => [
-        'table' => 'users',
-        'auth_field' => 'email'
     ],
     'url' => '',
     'DEVELOPMENT_ENVIRONMENT' => true,

@@ -21,9 +21,9 @@ class File {
      * @return mixed
      * @throws SwidlyException
      */
-    public static function readJson(string $path): string {
-        $content = self::readFile($path);
-        return json_decode($content, true);
+    public static function readJson(string $path) {
+        $content = self::readArray($path);
+        return json_encode($content);
     }
 
     public static function readArray(string $path): array {
