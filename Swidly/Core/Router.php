@@ -57,9 +57,19 @@ class Router
         $exp = explode('?', $uri);
         $route = array_shift($exp);
         $query_string = array();
-        isset($exp[0]) ? parse_str($exp[0], $query_string) : null;
+        isset($exp[1]) ? parse_str($exp[1], $query_string) : null;
         $requestType = strtolower($this->request->getType());
         $routes = $this->routes[$requestType];
+
+        // If the route is empty, we have a problem
+        if (empty($route)) {
+            throw new \RuntimeException('No route matched');
+        }
+
+        // If the route is not in the list of known routes, we have a problem
+        if (!isset($routes[$route])) {
+            throw new \RuntimeException(sprintf('Route "%s" was not found', $route));
+        }
 
         $newRoute = [];
         foreach($routes as $path => $callback) {
@@ -67,7 +77,9 @@ class Router
             if(stripos($path, '?:') > -1) {
                 $stripped = preg_replace("/\/\?\:\w+\/?/", "", $path);
                 $newRoute[$stripped] = $callback;
+                continue;
             }
+            $newRoute[$path] = $callback;
         }
 
         $tempPaths = [];
@@ -78,7 +90,7 @@ class Router
 
         $paths = array_merge($newRoute, $tempPaths);
         $pathsOnly = array_keys($paths);
-        $pattern_regex = preg_replace("#\:(\w+)#", '(?<$1>[\w._-]+)', $pathsOnly);
+        $pattern_regex = preg_replace("#\:(\w+)#", '(?<$1>[^/]+)', $pathsOnly);
 
         foreach($pattern_regex as $key => $pattern) {
             $pattern_regex = "#^". trim($pattern, "/") . "$#";
@@ -107,9 +119,8 @@ class Router
                 } else if (is_string($callback)) {
                     if(str_contains($callback, '::')) {
                         list($controller, $method) = explode('::', $callback);
-                        $className = $controller;
-                        $class = new $className();
-                        if(class_exists($className)) {
+                        if(class_exists($controller)) {
+                            $class = new $controller();
                             call_user_func_array(array($class, $method), array(&$this->request, &$this->response));
                             exit;
                         }
@@ -130,7 +141,10 @@ class Router
             $this->map();
         } catch (SwidlyException $ex) {
             Response::setStatusCode($ex->getCode());
-            (new Controller())->render('404', ['message' => $ex->getMessage()]);
+            (new Controller())->render('error', ['message' => $ex->getMessage()]);
+        } catch (Throwable $ex) {
+            Response::setStatusCode(500);
+            (new Controller())->render('error', ['message' => 'Server error']);
         }
     }
 

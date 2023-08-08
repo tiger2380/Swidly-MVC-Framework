@@ -74,6 +74,7 @@ class Response
         return $this;
     }
 
+    #[NoReturn]
     public function content(): void
     {
         foreach($this->headers as $header){
@@ -90,6 +91,7 @@ class Response
 		ob_clean();
 		ob_start();
 			
+		// Create a Response object
 		$R = new \stdClass;
 		$R->status = $this->statusCode;
 		if(!empty($this->message)){

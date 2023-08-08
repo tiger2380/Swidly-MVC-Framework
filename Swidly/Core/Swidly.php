@@ -320,6 +320,13 @@ class Swidly {
      * @return string
      */
     static function cleanPath(string $path): string {
+
+        $path = str_replace('\\', '/', $path);
+
+        if(strpos($path, '//') !== false) {
+            $path = str_replace('//', '/', $path);
+        }
+
         return file_exists($path) ? $path : '';
     }
 

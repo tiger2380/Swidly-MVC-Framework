@@ -21,6 +21,5 @@ $this->get('/sw_admin/themes', function($req, $res) {
     }
 
     $res->addData('themes', $themeInfos);
-
     $res->json();
 })->registerMiddleware(AuthMiddleware::class);

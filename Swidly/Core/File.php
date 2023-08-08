@@ -26,11 +26,17 @@ class File {
         return json_encode($content);
     }
 
-    public static function readArray(string $path): array {
+    public static function readArray(string $path): array | self {
         if (is_file($path)) {
-            return include $path;
+            $response = include $path;
+            if (is_array($response)) {
+                return $response;
+            }
+
+            return new self($response);
         }
-        return [];
+
+        throw new SwidlyException('Unable to open file.');
     }
 
     /**
@@ -50,5 +56,33 @@ class File {
             return true;
         }
         throw new SwidlyException('Unable to copy file.');
+    }
+
+    public function toJSON() {
+        return json_encode($this);
+    }
+
+    // covert the object to an array
+    public function toArray() {
+        return (array) $this;
+    }
+
+    // check to see if their a chain method after the call
+    // if so, then we need to call the method and pass the result to the next method
+    // if not, then we need to return the result
+    // if the method is not found, then we need to throw an exception
+    public function __call($name, $arguments) {
+        dump($name, $arguments);
+        if (method_exists($this, $name)) {
+            $result = $this->$name(...$arguments);
+            if (count($arguments) > 0) {
+                $next = $arguments[0];
+                if (is_callable($next)) {
+                    return $next($result);
+                }
+            }
+            return $result;
+        }
+        throw new SwidlyException('Method not found.');
     }
 }
