@@ -1,4 +1,4 @@
-import SinglePage, { useState } from "./single_page.js";
+import { useState, useSinglePage } from "./hooks.js";
 
 const options = {
     'onBeforeFetch': () => {
@@ -35,7 +35,7 @@ const options = {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
-    window.SinglePage = new SinglePage(options);
+    window.SinglePage = new useSinglePage(options);
     const [counter, setCounter] = useState(0);
     console.log(counter);
     setCounter(10);
