@@ -86,11 +86,6 @@ class Controller
         }
     }
 
-    public function admin_render(string $page, array $data = []): void
-    {
-        echo 'rendering admin';
-    }
-
     /**
      * @param string|null $str
      * @return array|string|null
@@ -107,17 +102,13 @@ class Controller
 
     protected function getLanguage(): void
     {
-        global $app;
-
         $default_lang = (new Request())->get('lang', Swidly::getConfig('default_lang'));
         $lang_path = __DIR__."/../lang/{$default_lang}.json";
 
         if (file_exists($lang_path)) {
-            $string = file_get_contents($lang_path);
-            $this->lang =  json_decode($string, true);
+            $this->lang = File::readJson($lang_path);
         }
     }
-
 
 
     public function __set($key, $value)

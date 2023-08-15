@@ -21,17 +21,17 @@ $opts = getopt("p::v::o::", ['up:', 'down:'], $rest_index);
 $args = array_slice($args, $rest_index);
 $command = count($args) > 0 ? $args[0] : null;
 
-$swidly = new \Swidly\Core\SwidlyCommand();
+$swidlyCommand = new \Swidly\Core\SwidlyCommand();
 
 if (!$command) {
-    $swidly->showHelp();
+    $swidlyCommand->showHelp();
     exit;
 }
 
 if(isset($command)) {
     $parts = explode(':', $command);
 
-    call_user_func_array([$swidly, $parts[0]], $args);
+    call_user_func_array([$swidlyCommand, $parts[0]], $args);
 
     if($action === 'make') {
         if($method === 'controller') {

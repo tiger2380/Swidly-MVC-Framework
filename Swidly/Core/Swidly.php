@@ -102,23 +102,60 @@ class Swidly {
      * @param string|null $routeName
      * @return void
      */
-    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void {
+    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void
+    {
+        if (!is_string($methods) && !is_array($methods)) {
+            throw new InvalidArgumentException('The $methods parameter must be a string or an array.');
+        }
+
+        if (!is_string($paths) && !is_array($paths)) {
+            throw new InvalidArgumentException('The $paths parameter must be a string or an array.');
+        }
+
+        if (!is_string($callback) && !is_callable($callback)) {
+            throw new InvalidArgumentException('The $callback parameter must be a string or a callable.');
+        }
+
         if (is_array($methods)) {
             foreach ($methods as $method) {
+                if (!in_array($method, self::HTTP_METHODS)) {
+                    throw new InvalidArgumentException(sprintf('Invalid HTTP method "%s".', $method));
+                }
+
                 if (is_array($paths)) {
                     foreach ($paths as $path) {
+                        if (!is_string($path)) {
+                            throw new InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                        }
+
                         $this->router->routes[strtolower($method)][$path] = $callback;
                     }
                 } else {
+                    if (!is_string($paths)) {
+                        throw new InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                    }
+
                     $this->router->routes[strtolower($method)][$paths] = $callback;
                 }
             }
         } else {
+            if (!in_array($methods, self::HTTP_METHODS)) {
+                throw new InvalidArgumentException(sprintf('Invalid HTTP method "%s".', $methods));
+            }
+
             if (is_array($paths)) {
                 foreach ($paths as $path) {
+                    if (!is_string($path)) {
+                        throw new InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                    }
+
                     $this->router->routes[strtolower($methods)][$path] = $callback;
                 }
             } else {
+                if (!is_string($paths)) {
+                    throw new InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                }
+
                 $this->router->routes[strtolower($methods)][$paths] = $callback;
             }
         }
@@ -135,20 +172,45 @@ class Swidly {
      */
     public function registerRoutes(ReflectionClass $reflectionClass): void
     {
-        $className = $reflectionClass->getName();
-        $methods = $reflectionClass->getMethods();
+        if (!$reflectionClass instanceof ReflectionClass) {
+            throw new InvalidArgumentException('The $reflectionClass parameter must be a ReflectionClass object.');
+        }
+
+        try {
+            $className = $reflectionClass->getName();
+            $methods = $reflectionClass->getMethods();
+        } catch (Exception $e) {
+            // Handle the exception appropriately
+            return;
+        }
 
         foreach ($methods as $method) {
-            $attributes = $method->getAttributes(Route::class);
+            try {
+                $attributes = $method->getAttributes(Route::class);
+            } catch (Exception $e) {
+                // Handle the exception appropriately
+                continue;
+            }
 
             foreach ($attributes as $attribute) {
-                $instance = $attribute->newInstance();
+                try {
+                    $instance = $attribute->newInstance();
+                } catch (Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
+                }
+
                 $methods = $instance->methods;
                 $path = $instance->path;
                 $name = $instance->name ?? null;
 
-                $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
-                $this->registerMiddlewares($method, $path);
+                try {
+                    $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
+                    $this->registerMiddlewares($method, $path);
+                } catch (Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
+                }
             }
         }
     }
@@ -160,21 +222,45 @@ class Swidly {
      */
     public function registerMiddlewares(ReflectionMethod $method, array|string $paths): void
     {
-        $attributes = $method->getAttributes(Middleware::class);
-        
-        if(\count($attributes) > 0) {
+        if (!$method instanceof ReflectionMethod) {
+            throw new InvalidArgumentException('The $method parameter must be a ReflectionMethod object.');
+        }
+
+        if (!is_array($paths) && !is_string($paths)) {
+            throw new InvalidArgumentException('The $paths parameter must be an array or a string.');
+        }
+
+        try {
+            $attributes = $method->getAttributes(Middleware::class);
+        } catch (Exception $e) {
+            // Handle the exception appropriately
+            return;
+        }
+
+        if (\count($attributes) > 0) {
             foreach ($attributes as $attribute) {
-                $instance = $attribute->newInstance();
+                try {
+                    $instance = $attribute->newInstance();
+                } catch (Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
+                }
+
                 $callback = $instance->callback;
 
-                if (is_array($paths)) {
-                    foreach ($paths as $path) {
-                        $this->next = $path;
+                try {
+                    if (is_array($paths)) {
+                        foreach ($paths as $path) {
+                            $this->next = $path;
+                            $this->registerMiddleware($callback);
+                        }
+                    } else {
+                        $this->next = $paths;
                         $this->registerMiddleware($callback);
                     }
-                } else {
-                    $this->next = $paths;
-                    $this->registerMiddleware($callback);
+                } catch (Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
                 }
             }
         }

@@ -33,17 +33,25 @@ class Response
     #[NoReturn]
     public function redirect($url, $referrer = null){
         if($referrer) {
-            $referrer = urlencode($referrer);
-            $url = "{$url}?redirect_uri={$referrer}";
+            $url = $this->addReferrer($url, $referrer);
         }
 
         if(count($this->messages) > 0) {
-            foreach($this->messages as $subject => $message) {
-                Store::save($subject, $message);
-            }
+            $this->saveMessages();
         }
         header('LOCATION: '. $url);
         exit();
+    }
+
+    private function addReferrer($url, $referrer) {
+        $referrer = urlencode($referrer);
+        return "{$url}?redirect_uri={$referrer}";
+    }
+
+    private function saveMessages() {
+        foreach($this->messages as $subject => $message) {
+            Store::save($subject, $message);
+        }
     }
 
     public function setContent(string $content): static
@@ -55,13 +63,29 @@ class Response
 
     public function addData($name, $data): static
     {
-        $this->data[$name] = $data;
+        if (is_string($name)) {
+            $this->data[$name] = $data;
+        } else {
+            throw new InvalidArgumentException('Name must be a string');
+        }
 
         return $this;
     }
 
     public function addMessage($subject, $message): static
     {
+        if (!is_string($subject)) {
+            throw new InvalidArgumentException('Subject must be a string');
+        }
+
+        if (!is_string($message)) {
+            throw new InvalidArgumentException('Message must be a string');
+        }
+
+        if (isset($this->messages[$subject])) {
+            throw new InvalidArgumentException('Subject already exists');
+        }
+
         $this->messages[$subject] = $message;
 
         return $this;
@@ -106,11 +130,6 @@ class Response
 			 $R->_Request = $GLOBALS['Request'];
 		};
 		
-		
-		// Set all headers
-		/*$this->header('Rest-Token: '.TOKEN);
-		$this->header('Rest-Server: '.SERVER_NAME);
-		$this->header('Rest-Server-Version: '.SERVICE_VERSION);*/
 		foreach($this->headers as $header){
 			header($header,true);
 		};
