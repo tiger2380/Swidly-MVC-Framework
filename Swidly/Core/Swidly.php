@@ -400,6 +400,36 @@ class Swidly {
             return $default;
         }
     }
+    
+    /**
+     * @param string $name
+     * @param mixed $value
+     * @return void
+     * @throws SwidlyException
+     */
+    public function setConfigValue(string $name, mixed $value): void {
+        if(!isset(Swidly::$config)) {
+            Swidly::$config = parseArray(require_once('Config.php'));
+        }
+        
+        Swidly::$config[$name] = $value;
+    }
+
+    /**
+     * @param array $config
+     * @return void
+     */
+    public function setConfigValues(array $config): void {
+        foreach ($config as $key => $value) {
+            $this->setConfigValue($key, $value);
+        }
+    }
+
+    public function enableErrorHandling(): void {
+        error_reporting(E_ALL);
+        set_error_handler([$this, 'errorHandler']);
+        set_exception_handler([$this, 'exceptionHandler']);
+    }
 
     /**
      * @param string $path
@@ -414,6 +444,11 @@ class Swidly {
         }
 
         return file_exists($path) ? $path : '';
+    }
+
+    protected function runTests($file = null): void {
+        $test = new Test();
+        $test->run($file);
     }
 
     /**
