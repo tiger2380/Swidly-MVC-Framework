@@ -55,21 +55,12 @@ class Router
         $replace = trim(dirname($this->request->serverName(), 2), '/');
         $uri = rtrim(str_replace($replace, '', $this->request->getUri()), '/');
         $exp = explode('?', $uri);
+
         $route = array_shift($exp);
         $query_string = array();
         isset($exp[1]) ? parse_str($exp[1], $query_string) : null;
         $requestType = strtolower($this->request->getType());
         $routes = $this->routes[$requestType];
-
-        // If the route is empty, we have a problem
-        if (empty($route)) {
-            throw new \RuntimeException('No route matched');
-        }
-
-        // If the route is not in the list of known routes, we have a problem
-        if (!isset($routes[$route])) {
-            throw new \RuntimeException(sprintf('Route "%s" was not found', $route));
-        }
 
         $newRoute = [];
         foreach($routes as $path => $callback) {

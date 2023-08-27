@@ -3,13 +3,22 @@ use \Swidly\Core;
 
 function dump($input, $stop = false): void
 {
+    // add line number from where this is called
+    $trace = debug_backtrace();
+    $line = $trace[0]['line'];
+    $file = $trace[0]['file'];
     echo '<pre style="display: inline-block; background: rgba(0,0,0,0.8); color: white; padding: 1.4rem;">';
+    echo '<span style="color: #FF0000;">'.$file.':'.$line.'</span><br/>';
     print_r($input);
     echo '</pre><br/>';
     
     if($stop) {
         exit();
     }
+}
+
+function dd($input): void {
+    dump($input, true);
 }
 
 function stripQuestionMarks($value): array|string
@@ -30,6 +39,92 @@ function hex2rgb($value = '#000000'): array
         $g,
         $b
     ];
+}
+
+function rgb2hex($rgb): string
+{
+    $hex = "#";
+    $hex .= str_pad(dechex($rgb[0]), 2, "0", STR_PAD_LEFT);
+    $hex .= str_pad(dechex($rgb[1]), 2, "0", STR_PAD_LEFT);
+    $hex .= str_pad(dechex($rgb[2]), 2, "0", STR_PAD_LEFT);
+
+    return $hex;
+}
+
+function getTheme(): array
+{
+    $theme = Core\Store::get('theme');
+
+    if($theme) {
+        return $theme;
+    } else {
+        return load_default_theme();
+    }
+}
+
+/**
+ * @param string $image
+ * @param string $watermark
+ * @param string $position
+ * @return bool|string
+ */
+function watermark_image($image, $watermark, $position = 'bottom-right') {
+    $filename = basename($image);
+    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+    if($original = imagecreatefromstring(file_get_contents($image))) {
+        $watermark = imagecreatefromstring(file_get_contents($watermark));
+        $watermark_width = imagesx($watermark);
+        $watermark_height = imagesy($watermark);
+
+        switch($position) {
+            case 'top-left':
+                $dest_x = 0;
+                $dest_y = 0;
+                break;
+            case 'top-right':
+                $dest_x = imagesx($original) - $watermark_width;
+                $dest_y = 0;
+                break;
+            case 'bottom-left':
+                $dest_x = 0;
+                $dest_y = imagesy($original) - $watermark_height;
+                break;
+            case 'bottom-right':
+                $dest_x = imagesx($original) - $watermark_width;
+                $dest_y = imagesy($original) - $watermark_height;
+                break;
+            default:
+                $dest_x = imagesx($original) - $watermark_width;
+                $dest_y = imagesy($original) - $watermark_height;
+                break;
+        }
+
+        imagealphablending($original, true);
+        imagealphablending($watermark, true);
+        imagecopy($original, $watermark, $dest_x, $dest_y, 0, 0, $watermark_width, $watermark_height);
+
+        switch($ext) {
+            case 'jpg':
+            case 'jpeg':
+                imagejpeg($original, null, 100);
+            case 'png':
+                imagesavealpha($original, true);
+                imagepng($original, null);
+                break;
+            case 'gif':
+                imagegif($original, null);
+                break;
+            default:
+                return $filename;
+                break;
+        }
+
+        imagedestroy($original);
+        imagedestroy($watermark);
+    } else {
+        return false;
+    }
 }
 
 function resize_image($image, $width, $height) {

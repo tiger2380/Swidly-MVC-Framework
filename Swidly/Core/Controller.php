@@ -106,7 +106,9 @@ class Controller
         $lang_path = __DIR__."/../lang/{$default_lang}.json";
 
         if (file_exists($lang_path)) {
-            $this->lang = File::readJson($lang_path);
+            File::readJson($lang_path);
+            $string = file_get_contents($lang_path);
+            $this->lang =  json_decode($string, true);
         }
     }
 

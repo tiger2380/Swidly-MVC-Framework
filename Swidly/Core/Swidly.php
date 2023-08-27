@@ -118,10 +118,6 @@ class Swidly {
 
         if (is_array($methods)) {
             foreach ($methods as $method) {
-                if (!in_array($method, self::HTTP_METHODS)) {
-                    throw new InvalidArgumentException(sprintf('Invalid HTTP method "%s".', $method));
-                }
-
                 if (is_array($paths)) {
                     foreach ($paths as $path) {
                         if (!is_string($path)) {
@@ -139,10 +135,6 @@ class Swidly {
                 }
             }
         } else {
-            if (!in_array($methods, self::HTTP_METHODS)) {
-                throw new InvalidArgumentException(sprintf('Invalid HTTP method "%s".', $methods));
-            }
-
             if (is_array($paths)) {
                 foreach ($paths as $path) {
                     if (!is_string($path)) {
