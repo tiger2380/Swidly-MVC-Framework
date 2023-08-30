@@ -132,10 +132,10 @@ class Router
             $this->map();
         } catch (SwidlyException $ex) {
             Response::setStatusCode($ex->getCode());
-            (new Controller())->render('error', ['message' => $ex->getMessage()]);
+            (new Controller())->render('404', ['message' => $ex->getMessage()]);
         } catch (Throwable $ex) {
             Response::setStatusCode(500);
-            (new Controller())->render('error', ['message' => 'Server error']);
+            (new Controller())->render('404', ['message' => 'Server error']);
         }
     }
 

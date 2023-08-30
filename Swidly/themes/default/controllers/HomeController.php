@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Swidly\themes\default\controllers;
 
+use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Controller;
 use Swidly\Core\Attributes\Route;
 use Swidly\Core\SwidlyException;
+use Swidly\Middleware\CsrfMiddleware;
 
 class HomeController extends Controller {
 
@@ -34,7 +36,8 @@ class HomeController extends Controller {
     /**
      * @throws SwidlyException
      */
-    #[Route(methods: 'GET', path: '/contact')]
+    #[Middleware((CsrfMiddleware::class))]
+    #[Route(methods: ['GET', 'POST'], path: '/contact')]
     function Contact($req, $res) {
         $this->render('contact', ['title' => 'Contact Page']);
     }

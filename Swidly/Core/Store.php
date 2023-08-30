@@ -51,7 +51,7 @@ class Store {
     static function verifyCsrf($token): bool
     {
         if(self::hasKey('csrf')) {
-            return hash_equals($_SESSION['csrf'], $token);
+            return hash_equals(self::get('csrf'), $token);
         } else {
             return false;
         }
