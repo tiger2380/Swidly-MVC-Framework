@@ -93,8 +93,10 @@ class Controller
     protected function parse(string $str = null): array|string|null
     {
         $vars = $this->vars;
-        return preg_replace_callback('|{([a-zA-Z0-9_:]+)}|', function ($matches) use ($vars) {
-            $word = $vars[$matches[1]] ?? ($vars['lang'][$matches[1]] ?? '');
+        $pattern = '/{([a-zA-Z0-9_:]+)(?:,\s*default=([a-zA-Z0-9_:]+))?}/';
+
+        return preg_replace_callback($pattern, function ($matches) use ($vars) {
+            $word = $vars[$matches[1]] ?? ($vars['lang'][$matches[1]] ?? $matches[2] ?? null);
 
             return isset($word) ? $this->parse($word) : '';
         }, $str);
@@ -106,9 +108,10 @@ class Controller
         $lang_path = __DIR__."/../lang/{$default_lang}.json";
 
         if (file_exists($lang_path)) {
-            File::readJson($lang_path);
             $string = file_get_contents($lang_path);
-            $this->lang =  json_decode($string, true);
+            $this->lang = json_decode($string, true);
+        } else {
+            echo 'unable to find lang file';
         }
     }
 

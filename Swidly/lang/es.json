@@ -1,3 +1,9 @@
 {
-    "hello": "Hola"
+    "hello": "Hola",
+    "world": "Mundo",
+    "hello world": "Hola Mundo",
+    "hello %s": "Hola %s",
+    "hello %s and %s": "Hola %s y %s",
+    "hello %(first)s and %(second)s": "Hola %(first)s y %(second)s",
+    "hello %(first)s": "Hola %(first)s"
 }

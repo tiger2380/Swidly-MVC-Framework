@@ -227,4 +227,28 @@ class DB
     {
         return [$sql => $params];
     }
+
+    public static function TableExists($table): bool
+    {
+        $sql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '".DB_NAME."' AND table_name = '".$table."' LIMIT 1";
+        $result = self::instance()->query($sql);
+        return $result->fetchColumn() > 0;
+    }
+
+    // alter table
+    public static function AlterTable($table, $column, $type, $length = null, $default = null, $after = null): bool
+    {
+        $sql = "ALTER TABLE $table ADD $column $type";
+        if($length) {
+            $sql .= "($length)";
+        }
+        if($default) {
+            $sql .= " DEFAULT $default";
+        }
+        if($after) {
+            $sql .= " AFTER $after";
+        }
+        $sql .= ";";
+        return self::instance()->exec($sql);
+    }
 }
