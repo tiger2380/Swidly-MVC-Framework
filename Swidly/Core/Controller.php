@@ -68,7 +68,7 @@ class Controller
         require_once $page;
         $content = ob_get_clean();
 
-        $parsedContent = self::parse($content);
+        $parsedContent = self::parseIncludes(self::parse($content));
 
         if(Swidly::isSinglePage() && Swidly::isRequestJson()) {
             $response = new Response();
@@ -115,6 +115,26 @@ class Controller
         }
     }
 
+    public function parseIncludes(string $str): string
+    {
+        $pattern = '/{@include \'?(.+?)\'?}/';
+
+        return preg_replace_callback($pattern, function ($matches) {
+            $file = $matches[1];
+            $base = Swidly::theme()['base'];
+            $file = $base.'/views/'.$file.'.php';
+
+            if (file_exists($file)) {
+                ob_start();
+                require_once $file;
+                $content = ob_get_clean();
+
+                return $this->parse($content);
+            }
+
+            return '';
+        }, $str);
+    }
 
     public function __set($key, $value)
     {
