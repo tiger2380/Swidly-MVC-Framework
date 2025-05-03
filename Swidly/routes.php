@@ -24,7 +24,7 @@ $this->get('/themes/get', function($req, $res) {
 });
 
 $this->get('/about/?:id', function($req, $res) {
-    echo 'ID: '.$req->get('id', 100);
+    self::render('about');
 });
 
 $this->group(['prefix' => 'api', 'before' => 'changeName'], function($router) {

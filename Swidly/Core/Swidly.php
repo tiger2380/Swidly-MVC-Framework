@@ -38,6 +38,7 @@ class Swidly {
         public Form                $form = new Form(),
         protected Request          $request = new Request,
         private readonly Router    $router = new Router,
+        private Controller         $controller = new Controller,
     )
     {
         $this->isSinglePage = self::getConfig('app::single_page', false);
@@ -534,7 +535,7 @@ class Swidly {
     static function theme(): array
     {
         $themeName = self::getConfig('theme', 'default');
-        $themePath = APP_PATH.'/themes/'.$themeName;
+        $themePath = APP_PATH.'themes/'.$themeName;
 
         if(!file_exists($themePath)) {
             throw new SwidlyException('Unknown theme: '.$themeName);
@@ -676,5 +677,10 @@ class Swidly {
     static function isLoggedIn(): bool
     {
         return isset($_SESSION[Swidly::getConfig('session_name')]);
+    }
+
+    static function render($path) {
+        $self = new self();
+        $self->controller->render($path);
     }
 }

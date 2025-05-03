@@ -109,8 +109,6 @@ class Controller
             // Re-throw as RuntimeException
             throw new \RuntimeException("Failed to load model '$model': " . $e->getMessage(), 0, $e);
         }
-
-        return false;
     }
 
     /**
@@ -139,7 +137,7 @@ class Controller
         require_once $page;
         $content = ob_get_clean();
 
-        $parsedContent = self::parse($content);
+        $parsedContent = self::parseIncludes(self::parse($content));
 
         //if(Swidly::isSinglePage() && Swidly::isRequestJson()) {
         if(Swidly::isRequestJson()) {
@@ -182,8 +180,41 @@ class Controller
 
         if (file_exists($lang_path)) {
             $string = file_get_contents($lang_path);
-            $this->lang =  json_decode($string, true);
+            $this->lang = json_decode($string, true);
+        } else {
+            echo 'unable to find lang file';
         }
+    }
+
+    public function parseIncludes(string $str): string
+    {
+        $pattern = '/\{@include\s+[\'"]?([\w.\/-]+)[\'"]?\s*(.*?)}/';
+
+        return preg_replace_callback($pattern, function ($matches) {
+            $file = $matches[1];
+            $base = Swidly::theme()['base'];
+            $file = $base.'/views/'.$file.'.php';
+            $params = [];
+
+            if (!empty($matches[2])) {
+                // Option 1: Parse space-separated key=value pairs
+                preg_match_all('/(\w+)=[\'"]?(.*?)[\'"]?(?:\s|$)/', $matches[2], $paramMatches, PREG_SET_ORDER);
+                foreach ($paramMatches as $param) {
+                    $params[$param[1]] = $param[2];
+                }
+            }
+
+            if (file_exists($file)) {
+                extract($params);
+                ob_start();
+                require_once $file;
+                $content = ob_get_clean();
+
+                return $this->parse($content);
+            }
+
+            return '';
+        }, $str);
     }
 
     public function __set($key, $value)
