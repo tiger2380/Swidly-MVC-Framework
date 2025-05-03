@@ -109,6 +109,8 @@ class Controller
             // Re-throw as RuntimeException
             throw new \RuntimeException("Failed to load model '$model': " . $e->getMessage(), 0, $e);
         }
+
+        return false;
     }
 
     /**
