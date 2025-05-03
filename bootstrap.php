@@ -1,10 +1,11 @@
 <?php
+spl_autoload_register('autoLoader');
+
 const APP_VERSION = '0.0.1';
 const APP_ROOT = __DIR__;
-const APP_PATH = APP_ROOT . '/Swidly';
+define('APP_BASE', basename(APP_ROOT));
+const APP_PATH = APP_ROOT . '/Swidly/';
 const APP_CORE = APP_PATH . '/Core';
-
-spl_autoload_register('autoLoader');
 
 if(file_exists(APP_CORE.'/helpers.php')) {
     require_once APP_CORE . '/helpers.php';
@@ -18,10 +19,12 @@ function autoLoader($className): void
         APP_PATH.'Controllers/',
         APP_PATH.'Core/',
         APP_PATH.'Middleware/',
-        APP_PATH.'Models/',
+        APP_PATH.'models/',
+        APP_PATH.'Libs/',
     ];
 
     $filepath = __DIR__.'/'.str_replace('\\', '/', $className).'.php';
+
     if(file_exists($filepath)) {
         require_once $filepath;
     } else {

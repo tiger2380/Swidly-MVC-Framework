@@ -3,134 +3,181 @@
 
 declare(strict_types=1);
 
-require_once 'formatPrint.php';
-define('ROOTDIR', dirname(dirname(__FILE__)));
+namespace Swidly\Core\Console;
 
-require ROOTDIR.'/../../bootstrap.php';
-$routeStr = <<<STR
+use Swidly\Core\Factory\CommandFactory;
 
-\$this->get('%s%s', '%sController::Index')
+if (php_sapi_name() !== 'cli') {
+    die('This script can only be run from the command line.');
+}
+
+require_once __DIR__ . '/formatPrint.php';
+define('ROOTDIR', dirname(dirname(__DIR__)));
+require ROOTDIR . '/../bootstrap.php';
+require_once ROOTDIR . '/Core/helpers.php';
+
+class Console {
+    private const ROUTE_TEMPLATE = <<<'STR'
+$this->get('%s%s', '%sController::Index')
 ->name('%s');
 STR;
 
-$args = $_SERVER['argv'];
-$opts = getopt("p::v::o::", ['up:', 'down:'], $rest_index);
-$args = array_slice($args, $rest_index);
-$command = $args[0];
 
-if(stripos($command, ':') > -1) {
-    list($action, $method) = explode(':', $command);
+    private const MIGRATION_TEMPLATE = <<<'STR'
+<?php
+declare(strict_types=1);
 
-    if($action === 'make') {
-        if($method === 'controller') {
-            $name = $args[1];
-            createController($name);
-        } else if ($method === 'route') {
-            $name = $args[1];
-            $path = $args[2];
+namespace Swidly\Migrations;
 
-            $param = $opts['p'] ?? '';
-            if(!empty($param)) {
-                $opt = $opts['o'] ? '?' : '';
-                if($path[strlen($path) - 1] === '/') {
-                    $param = "$opt{$param}";    
-                } else {
-                    $param = "/$opt{{$param}}";
-                }
-            }
-            $routeFormat = sprintf($routeStr, $path, $param, ucfirst($name), $name);
-            $routeFile = './routes.php';
-    
-            if(!file_exists($routeFile)) {
-                ask:
-                formatPrintLn(['magenta', 'bold'], "It seems like I can not find the route file. Type if the path below:");
-                $handle = fopen ("php://stdin","r");
-                $line = fgets($handle);
-                if(trim($line) != ''){
-                    $routeFile = trim($line);
-    
-                    if(!file_exists($routeFile)) {
-                        goto ask;
-                    }
-                }
-                fclose($handle);
-            }
-    
-            createController($name);
-            formatPrintLn(['cyan', 'bold'], "Creating route..");
-            file_put_contents($routeFile, $routeFormat, FILE_APPEND);
-        } else if ($method === 'migration') {
-            makeMigration();
-        } else if ($method === 'migrate') {
-            formatPrintLn(['cyan', 'bold'], "Migrating..");
-            $migrationDir = ROOTDIR.'/../Migrations/';
-            $versions = array_diff(scandir($migrationDir), array('.', '..'));
-            $migrationFilenames = array_map(fn($migration) => pathinfo($migration)['filename'], $versions);
-            $option = $args[1];
+use Swidly\Core\AbstractMigration;
 
-            $migrations = handle_migrate($migrationFilenames);
+final class Version%s extends AbstractMigration
+{
+    public function getDescription(): string
+    {
+        return '';
+    }
 
-            foreach ($migrations as $migration) {
-                $name = $migration->getName();
-               
-                $methods = $migration->getMethods();
+    public function up(): void
+    {
+        %s
+    }
 
-                foreach ($methods as $method) {
-                    $migrationAction = strtolower(trim($option, '--'));
-                    if($migrationAction === $method->getName()) {
-                        $className = $migration->getName();
-                        $class = new $className();
-                        $class->{$migrationAction}();
-
-                        $queries = $class->getSql();
-                        $description = $class->getDescription();
-
-                        formatPrintLn(['white', 'bold'], $description);
-
-                        foreach ($queries as $query) {
-                            $sql = array_keys($query)[0];
-                            \Swidly\Core\DB::Sql($sql)->run();
-                            sleep(1);
-                        }
-                    }
-                }
-            }
-        } else {
-            formatPrintLn(['red', 'bold'], "Unknown command");
-            exit;
-        }
-    } 
+    public function down(): void
+    {
+        %s
+    }
 }
+STR;
 
-formatPrintLn(['green', 'bold'], "Finished!!");
+    private array $args;
+    private array $opts;
+    private array $theme;
+
+    public function __construct(array $args) {
+        $this->opts = getopt('mcud', ['model::', 'controller::', 'up::', 'down::'], $rest_index);
+        $this->args = array_slice($args, $rest_index);
+        $this->theme = \Swidly\Core\Swidly::theme();
+    }
+
+    // Add a helper method to check options
+    private function hasOption(string $option): bool {
+        // Check both short and long options
+        return isset($this->opts[$option]) || 
+               isset($this->opts[match($option) {
+                   'o' => 'option1',
+                   'm' => 'option2',
+                   'c' => 'option3',
+                   default => $option
+               }]);
+    }
+
+    public function run(): void {
+        try {
+            $command = $this->args[0] ?? '';
+            if (empty($command)) {
+                throw new \InvalidArgumentException("No command specified");
+            }
+
+            if (strpos($command, ':') === false) {
+                throw new \InvalidArgumentException("Invalid command format. Use action:method");
+            }
+
+            [$action, $method] = explode(':', $command);
+            $this->handleCommand($action, $method);
+            
+            formatPrintLn(['green', 'bold'], "Command executed successfully!");
+        } catch (\Exception $e) {
+            formatPrintLn(['red', 'bold'], "Error: " . $e->getMessage());
+            exit(1);
+        }
+    }
+
+    private function handleCommand(string $action, string $method): void {
+        if ($action !== 'make') {
+            throw new \InvalidArgumentException("Unknown action: $action");
+        }
+
+        // Use factory to create command
+        $command = CommandFactory::create($method, [
+            'name' => $this->args[1] ?? '',
+            'theme' => $this->theme,
+            'options' => $this->opts
+        ]);
+        
+        $command->execute();
+    }
+    
+    private function createRoute(): void {
+        if (!isset($this->args[1], $this->args[2])) {
+            throw new \InvalidArgumentException("Route name and path are required");
+        }
+
+        $name = $this->args[1];
+        $path = $this->args[2];
+        $param = $this->buildRouteParameter();
+        
+        $routeContent = sprintf(self::ROUTE_TEMPLATE, $path, $param, ucfirst($name), $this->theme['name']);
+        $routePath = $this->getRoutePath();
+
+        formatPrintLn(['cyan', 'bold'], "Creating route...");
+        file_put_contents($routePath, $routeContent, FILE_APPEND);
+    }
+
+    private function buildRouteParameter(): string {
+        $param = $this->opts['p'] ?? '';
+        if (empty($param)) {
+            return '';
+        }
+
+        $optional = isset($this->opts['o']) ? '?' : '';
+        return $this->args[2][strlen($this->args[2]) - 1] === '/' 
+            ? "$optional{$param}" 
+            : "/$optional{{$param}}";
+    }
+
+    private function getRoutePath(): string {
+        $routePath = './routes.php';
+        
+        while (!file_exists($routePath)) {
+            formatPrintLn(['magenta', 'bold'], "Route file not found. Please enter the correct path:");
+            $handle = fopen("php://stdin", "r");
+            $input = trim(fgets($handle));
+            fclose($handle);
+
+            if (!empty($input)) {
+                $routePath = $input;
+            }
+        }
+
+        return $routePath;
+    }
+
+    private function runMigration(): void {
+        $migrationFiles = array_diff(scandir(ROOTDIR.'/../Migrations/'), ['.', '..']);
+        $migrationFilenames = array_map(fn($file) => pathinfo($file)['filename'], $migrationFiles);
+        
+        formatPrintLn(['cyan', 'bold'], "Running migrations...");
+        foreach (handle_migrate($migrationFilenames) as $migration) {
+            $instance = new $migration->name();
+            $instance->up();
+        }
+    }
+
+    private function makeMigration(): void {
+        $migrationStr = sprintf(self::MIGRATION_TEMPLATE, date('mdYhi'), '{up}', '{down}');
+        $migrationPath = ROOTDIR.'/../Migrations/Version'.date('mdYhi').'.php';
+
+        formatPrintLn(['cyan', 'bold'], "Creating migration files...");
+        file_put_contents($migrationPath, $migrationStr);
+    }
+}
 
 function handle_migrate(array $migrationFilenames) {
     foreach ($migrationFilenames as $migrationName) {
         $className = 'Swidly\Migrations\\'.$migrationName;
         $instance = new $className();
         yield new \ReflectionClass(get_class($instance));
-    }
-}
-
-function createController(string $name) {
-$controllerStr = <<<STR
-<?php
-    namespace Swidly\Controllers;
-
-    class %sController extends \Swidly\Controller {
-        function Index(\$req, \$res) {
-            echo 'This is %s controller.';
-        }
-    }
-STR;
-
-    formatPrintLn(['cyan', 'bold'], "Creating controller..");
-    $controllerFormat = sprintf($controllerStr, ucfirst($name), ucfirst($name));
-    $newFileName = './Swidly/Controllers/'.ucfirst($name).'Controller.php';
-    if(!file_exists($newFileName)) {
-        file_put_contents($newFileName, $controllerFormat);
-    } else {
-        formatPrintLn(['red', 'bold'], "Controller already exists..");
     }
 }
 
@@ -221,11 +268,11 @@ STR;
 
 function getEntities() {
     $entities = [];
-    $models = array_diff(scandir(ROOTDIR.'/../Models/'), array('.', '..'));
+    $models = array_diff(scandir(ROOTDIR.'/../models/'), array('.', '..'));
     $modelFilenames = array_map(fn($model) => pathinfo($model)['filename'], $models);
 
     foreach ($modelFilenames as $model) {
-        $class = 'Models/'.$model;
+        $class = 'models/'.$model;
         $dir = ROOTDIR.'/../'.$class.'.php';
         if(file_exists($dir)) {
             $className = 'Swidly\Models\\'.$model;
@@ -239,3 +286,7 @@ function getEntities() {
 
     return $entities;
 }
+
+// Initialize and run console
+$console = new Console($_SERVER['argv']);
+$console->run();

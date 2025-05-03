@@ -1,8 +1,10 @@
-<?= $this->render('inc/header') ?>
-<h1>Hello world</h1>
+{@include 'inc/header'}
+<<<<<<< HEAD
+<h1>Welcome {title}</h1>
+=======
+<h1>Your age is {age, default=99}</h1>
 <div>
-    <p><?= $data['age'] ?></p>
-    <p><?= $data['sex'] ?></p>
-    <p><?= $data['birthday'] ?></p>
+    {@include post}
 </div>
-<?= $this->render('inc/footer') ?>
+>>>>>>> 264e7cc21600ddd025ea82dfa9ff19115d813106
+{@include inc/footer}

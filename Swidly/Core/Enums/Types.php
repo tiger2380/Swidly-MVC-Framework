@@ -10,4 +10,7 @@ enum Types: string {
     case DOUBLE = 'double';
     case DATETIME = 'datetime';
     case BIGINT = 'bigint';
+    case TEXT = 'text';
+
+    case TIMESTAMP = 'timestamp';
 }

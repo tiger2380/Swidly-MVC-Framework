@@ -1,4 +1,4 @@
-import SinglePage, { useState } from "./single_page.js";
+import { useState, useSinglePage } from "./hooks.js";
 
 const options = {
     'onBeforeFetch': () => {
@@ -31,21 +31,11 @@ const options = {
             }, 1000);
         }
     },
-    'delimiter': '🕹️'
+    'delimiter': '|'
 };
-
+window.SinglePage = new useSinglePage(options);
 window.addEventListener('DOMContentLoaded', () => {
-    window.SinglePage = new SinglePage(options);
-    const [counter, setCounter] = useState(0);
-    console.log(counter);
-    setCounter(10);
-    console.log(counter);
-    setCounter(11);
-    console.log(counter);
+    window.SinglePage.on('afterFetch', function () {
 
-    window.SinglePage.on('formSubmitted', (response) => {
-       const {data} = JSON.parse(response);
-
-       alert(data.message);
-    });
+    })
 });

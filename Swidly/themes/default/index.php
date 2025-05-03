@@ -1,1 +1,0 @@
-themename default theme

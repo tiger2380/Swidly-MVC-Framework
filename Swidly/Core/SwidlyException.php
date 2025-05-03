@@ -14,4 +14,25 @@ class SwidlyException extends \Exception {
         $this->code = $code;
         $this->message = $message;
     }
+
+    /**
+     * @return int
+     */
+    public function getStatusCode() : int {
+        return $this->code;
+    }
+
+    /**
+     * @return string
+     */
+    public function getStatusMessage() : string {
+        return $this->message;
+    }
+
+    /**
+     * @return string
+     */
+    public function __toString() : string {
+        return $this->message;
+    }
 };

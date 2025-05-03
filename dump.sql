@@ -12,8 +12,8 @@ create table post
 )
     auto_increment = 6;
 
-INSERT INTO posts.post (title, id, createdAt, body) VALUES ('Post Title 1', 1, '2022-11-11 12:11:52', 'This is the post body');
-INSERT INTO posts.post (title, id, createdAt, body) VALUES ('Post Title 2', 2, '2022-11-11 12:35:50', 'This is my second post... YAY!!');
+INSERT INTO posts.post (title, id, createdAt, body) VALUES ('PostModel Title 1', 1, '2022-11-11 12:11:52', 'This is the post body');
+INSERT INTO posts.post (title, id, createdAt, body) VALUES ('PostModel Title 2', 2, '2022-11-11 12:35:50', 'This is my second post... YAY!!');
 INSERT INTO posts.post (title, id, createdAt, body) VALUES ('New Title', 3, '2022-11-11 02:46:00', 'This is a newly body.');
 INSERT INTO posts.post (title, id, createdAt, body) VALUES ('New Title', 4, '2022-11-11 02:46:00', 'This is a newly body.');
 INSERT INTO posts.post (title, id, createdAt, body) VALUES ('test234432', 5, '2022-11-11 02:46:00', 'fasd fa sdfa sdf asd');

@@ -37,6 +37,90 @@ class Request
         return $this->request[$key] ?? $defaultValue;
     }
 
+    public function getServer($key, $defaultValue = null) {
+        return $this->server[$key] ?? $defaultValue;
+    }
+
+    public function getCookie($key, $defaultValue = null) {
+        return $_COOKIE[$key] ?? $defaultValue;
+    }
+
+    public function getPost($key, $defaultValue = null) {
+        return $_POST[$key] ?? $defaultValue;
+    }
+
+    public function getGet($key, $defaultValue = null) {
+        return $_GET[$key] ?? $defaultValue;
+    }
+
+    public function getFiles($key, $defaultValue = null) {
+        return $_FILES[$key] ?? $defaultValue;
+    }
+
+    public function getSession($key, $defaultValue = null) {
+        return $_SESSION[$key] ?? $defaultValue;
+    }
+
+    public function getHeader($key, $defaultValue = null) {
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $key));
+        return $_SERVER[$key] ?? $defaultValue;
+    }
+
+    public function getIp(): string
+    {
+        return $this->getServer('REMOTE_ADDR');
+    }
+
+    public function getHost(): string
+    {
+        return $this->getServer('HTTP_HOST');
+    }
+
+    public function getProtocol(): string
+    {
+        return $this->getServer('SERVER_PROTOCOL');
+    }
+
+    public function getPort(): string
+    {
+        return $this->getServer('SERVER_PORT');
+    }
+
+    public function getMethod(): string
+    {
+        return $this->getServer('REQUEST_METHOD');
+    }
+
+    public function getUri(): string
+    {
+        return $this->getServer('REQUEST_URI');
+    }
+
+    public function getQueryString(): string
+    {
+        return $this->getServer('QUERY_STRING');
+    }
+
+    public function getContentType(): ?string
+    {
+        return $this->getServer('CONTENT_TYPE');
+    }
+
+    public function getAccept(): string
+    {
+        return $this->getServer('HTTP_ACCEPT');
+    }
+
+    public function getAcceptEncoding(): string
+    {
+        return $this->getServer('HTTP_ACCEPT_ENCODING');
+    }
+
+    public function getAcceptLanguage(): string
+    {
+        return $this->getServer('HTTP_ACCEPT_LANGUAGE');
+    }
+
     protected function getUser(): ?object
     {
         $response = null;
@@ -46,11 +130,6 @@ class Request
         }
 
         return $response;
-    }
-
-    public function getUri()
-    {
-        return trim($this->server['REQUEST_URI'], '/');
     }
 
     public function getType()
@@ -104,5 +183,11 @@ class Request
 
     public function serverName() {
         return $this->server['SCRIPT_NAME'];
+    }
+
+    public function isAjax(): bool
+    {
+        return $this->getHeader('X-Requested-With') === 'XMLHttpRequest' ||
+            str_contains($this->getContentType() ?? '', 'application/json');
     }
 }

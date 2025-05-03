@@ -1,14 +1,18 @@
 <?php
 
-namespace Swidly\Models;
+<<<<<<< HEAD:Swidly/themes/single_page/models/BlogModel.php
+namespace Swidly\themes\single_page\models;
+=======
+namespace Swidly\themes\default\models;
+>>>>>>> 264e7cc21600ddd025ea82dfa9ff19115d813106:Swidly/themes/default/models/BlogModel.php
 
 use Swidly\Core\Model;
 use Swidly\Core\Attributes\Table;
 use Swidly\Core\Attributes\Column;
 use Swidly\Core\Enums\Types;
 
-#[Table(name: 'post')]
-class PostModel extends Model {
+#[Table(name: 'blog')]
+class BlogModel extends Model {
     #[Column(type: Types::INTEGER, isPrimary: true)]
     public int $id;
 
@@ -18,7 +22,7 @@ class PostModel extends Model {
     #[Column(type: Types::DATETIME)]
     private string $createdAt;
 
-    #[Column(type: Types::STRING)]
+    #[Column(type: Types::STRING, nullable: true)]
     private string $body;
 
     public function getId(): int {

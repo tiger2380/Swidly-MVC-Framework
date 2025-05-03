@@ -3,6 +3,10 @@
 
 declare(strict_types=1);
 
+if (php_sapi_name() !== 'cli') {
+    die('This is for console command line only.');
+}
+
 require_once './Swidly/Core/Console/formatPrint.php';
 
 require 'bootstrap.php';
@@ -17,8 +21,17 @@ $opts = getopt("p::v::o::", ['up:', 'down:'], $rest_index);
 $args = array_slice($args, $rest_index);
 $command = count($args) > 0 ? $args[0] : null;
 
-if(isset($command) && stripos($command, ':') > -1) {
-    list($action, $method) = explode(':', $command);
+$swidlyCommand = new \Swidly\Core\SwidlyCommand();
+
+if (!$command) {
+    $swidlyCommand->showHelp();
+    exit;
+}
+
+if(isset($command)) {
+    $parts = explode(':', $command);
+
+    call_user_func_array([$swidlyCommand, $parts[0]], $args);
 
     if($action === 'make') {
         if($method === 'controller') {
@@ -221,11 +234,11 @@ STR;
 
 function getEntities() {
     $entities = [];
-    $models = array_diff(scandir(APP_PATH.'/Models/'), array('.', '..'));
+    $models = array_diff(scandir(APP_PATH.'/models/'), array('.', '..'));
     $modelFilenames = array_map(fn($model) => pathinfo($model)['filename'], $models);
 
     foreach ($modelFilenames as $model) {
-        $class = 'Models/'.$model;
+        $class = 'models/'.$model;
         $dir = APP_PATH.'/'.$class.'.php';
         if(file_exists($dir)) {
             $className = 'Swidly\Models\\'.$model;

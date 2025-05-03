@@ -1,4 +1,4 @@
-# Welcome to 'Not Another' PHP MVC Framework
+# Welcome to Swidly PHP MVC Framework
 
 This is a small, simple yet powerful PHP MVC Framework built with vanilla PHP using no frameworks. My goal is to make a self-contain MVC that doesn't depend on any 3rd parties. No installation/composer require. I'm trying my best to lower the learning curve when it comes to MVC. 
 
@@ -27,9 +27,51 @@ This will create the tables to run the sample application.
 The configuration settings are stored under [Swidly/Core/Config.php](Swidly/Core/Config.php)
 You can access the settings in your code by: `Swidly::getConfig('db::host')`. You can also set a default value by: `Swidly::getConfig('db::host', 'localhost')`.
 
+### `getConfig(string $name, mixed $default = ''): mixed`
+
+This static method returns the value of a configuration parameter with the given name. If the parameter is not found or is empty, it returns the default value.
+
+#### Parameters
+
+- `$name` (string): The name of the configuration parameter to retrieve.
+- `$default` (mixed): The default value to return if the parameter is not found or is empty. Default is an empty string.
+
+#### Return Value
+
+- (mixed): The value of the configuration parameter, or the default value if the parameter is not found or is empty.
+
+### `setConfigValue(string $name, mixed $value): void`
+
+This method sets the value of a configuration parameter with the given name.
+
+#### Parameters
+
+- `$name` (string): The name of the configuration parameter to set.
+- `$value` (mixed): The value to set for the configuration parameter.
+
+#### Return Value
+
+- (void): This method does not return anything.
+
+#### Throws
+
+- `SwidlyException`: If the configuration file cannot be parsed.
+
+### `setConfigValues(array $config): void`
+
+This method sets the values of multiple configuration parameters at once.
+
+#### Parameters
+
+- `$config` (array): An associative array of configuration parameter names and values.
+
+#### Return Value
+
+- (void): This method does not return anything.
+
 ## Routing
 
-The [Router](Swidly/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](Swidly/Controllers/HomeController.php).
+The [Router](Swidly/Core/Router.php) translates URLs into controllers and actions. Routes are added to the [front controller](public/index.php). A sample home route is included that routes to the `index` action in the [Home controller](Swidly/themes/default/controllers/HomeController.php).
 
 Routes are located in the [Swidly/routes.php](Swidly/routes.php) file
 
@@ -120,7 +162,7 @@ Middlewares can be stored in the [Swidly/Middleware](Swidly/Middleware) director
 ## Controllers
 Controllers respond to user actions (clicking on a link, submitting a form etc.). Controllers are classes that extend the [Swidly\Core\Controller](Swidly/Core/Controller.php) class.
 
-Controllers are stored in the `Swidly/Controllers` folder. A sample [Home controller](Swidly/Controllers/HomeController.php) is included. Controller classes need to be in the `Swidly/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
+Controllers are stored in the `Swidly/Controllers` folder. A sample [Home controller](Swidly/themes/default/controllers/HomeController.php) is included. Controller classes need to be in the `Swidly/Controllers` namespace. You can add subdirectories to organize your controllers, so when adding a route for these controllers you need to specify the namespace (see the routing section above).
 
 Controller classes contain methods that are the actions. To create an action, add the **`Action`** suffix to the method name. The sample controller in [Swidly/Controllers/HomeController.php](Swidly/Controllers/HomeController.php) has a sample `index` action.
 
@@ -183,6 +225,7 @@ This is example how to insert new data into the database
 ```
 
 Insert data using an entity for example `PostModel`.
+
 ```php
 #[Route('POST', '/posts/add', 'addPost')]
 function AddPost($req, $res) {
@@ -205,6 +248,102 @@ function UpdatePost($req, $res) {
     $postModel->save();
 }
 ```
+
+## Store class
+To use the `Store` class in your PHP project, you will need to include the `Store.php` file in your PHP script using the `require_once` statement. Once you have included the file, you can call the static methods of the `Store` class to start a session, save values to the session, retrieve a CSRF token, and check if a key exists in the session.
+
+Here is an example of how to use the `Store` class to start a session and save a value to the session:
+
+```php
+<?php
+require_once 'path/to/Store.php';
+
+// Start a session
+Store::startSession();
+
+// Save a value to the session
+Store::save('username', 'JohnDoe');
+
+// Retrieve the value from the session
+$username = Store::get('username');
+
+echo $username; // Output: JohnDoe
+```
+
+You can use the other static methods of the `Store` class in a similar way to handle sessions in your PHP project.
+
+## File class
+The `File` class is a PHP class that provides methods for handling files. It has static methods for reading files, reading JSON files, reading PHP files as arrays or objects, copying files, and converting objects to JSON. The class is part of the `Swidly\Core` namespace.
+
+Here is a brief overview of the methods provided by the `File` class:
+
+- `readFile($path)`: Reads the contents of a file and returns them as a string.
+- `readJson($path)`: Reads the contents of a JSON file and returns them as a JSON-encoded string.
+- `readArray($path)`: Reads the contents of a PHP file and returns them as an array or an object.
+- `copyFile($source, $destination, $keepOriginal)`: Copies a file from the source path to the destination path. If `$keepOriginal` is set to `true`, the original file will be kept; otherwise, it will be deleted.
+- `toJSON()`: Converts an object to a JSON-encoded string.
+
+All of the methods in the `File` class throw a `SwidlyException` if there is an error reading or copying the file.
+
+Here is an example of how to use the `File` class to read the contents of a file:
+
+```php
+<?php
+require_once 'path/to/File.php';
+
+// Read the contents of a file
+$content = File::readFile('path/to/file.txt');
+
+echo $content; // Output: The contents of the file
+```
+
+You can use the other static methods of the `File` class in a similar way to handle files in your PHP project.
+
+## Hooks
+The `Hook` class is a PHP class that provides a simple way to implement hooks in your PHP project. It allows you to register callbacks that can be executed at specific points in your code. The class is part of the `Swidly\Core` namespace.
+
+Here is a brief overview of the methods provided by the `Hook` class:
+
+- `__construct($name, $allowMultipleCalls)`: Initializes a new instance of the `Hook` class with the specified name and whether multiple calls are allowed.
+- `addAction($callback, $priority, $runOnce)`: Adds a new action to the hook with the specified callback, priority, and whether the action should only be run once.
+- `doCallback()`: Executes all the actions registered to the hook.
+- `getHook($name)`: Returns the hook with the specified name.
+- `getActions()`: Returns all the actions registered to the hook.
+- `setDone()`: Marks the hook as done.
+
+The `Hook` class uses the `Action` class to represent each action registered to the hook. The `Action` class contains a callback, priority, and whether the action should only be run once.
+
+Here is an example of how to use the `Hook` class to register and execute a callback:
+
+```php
+<?php
+require_once 'path/to/Hook.php';
+
+// Create a new hook
+$hook = new Hook('my_hook', true);
+
+// Add a new action to the hook
+$hook->addAction(function($arg1, $arg2) {
+    echo "Action 1: $arg1, $arg2\n";
+}, Priority::NORMAL, false);
+
+// Add another action to the hook
+$hook->addAction(function($arg1, $arg2) {
+    echo "Action 2: $arg1, $arg2\n";
+}, Priority::HIGH, false);
+
+// Execute the hook
+$hook->doCallback('Hello', 'World');
+```
+
+This will output:
+
+```
+Action 2: Hello, World
+Action 1: Hello, World
+```
+
+You can use the `Hook` class to implement hooks in your PHP project to execute callbacks at specific points in your code.
 
 ## Single Page Support (beta)
 Support single page with ease right out-of-the-box
@@ -246,5 +385,6 @@ return [
 ```
 
 Add the `data-sp-link` attribute to any buttons/links that will require navigation using the single page functionality.
+
 
 That's it. No download or installation.

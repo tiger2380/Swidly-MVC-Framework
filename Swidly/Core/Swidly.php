@@ -13,9 +13,19 @@ use Swidly\Core\Attributes\Route;
 class Swidly {
     public static array $middlewares = [];
     public static array $routeNames = [];
+    public static array $befores = [];
+    public static array $afters = [];
     public static ?array $config = null;
     protected ?string $next = null;
     protected bool $isSinglePage = false;
+    public static array $filters = [];
+    /**
+     * The singleton instance of the Swidly class
+     *
+     * @var Swidly|null
+     */
+    private static ?self $instance = null;
+
 
     /**
      * @param Response $response
@@ -31,6 +41,24 @@ class Swidly {
     )
     {
         $this->isSinglePage = self::getConfig('app::single_page', false);
+    }
+
+    /**
+     * Get the singleton instance of the Swidly application
+     *
+     * This method implements the singleton pattern to ensure
+     * there's only one instance of the Swidly application available
+     * throughout the application lifecycle.
+     *
+     * @return self The singleton instance of Swidly
+     */
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+
+        return self::$instance;
     }
 
     /**
@@ -78,6 +106,43 @@ class Swidly {
     }
 
     /**
+     * @param string $key
+     * @param string|\Closure $value
+     * @return $this
+     */
+    public function group(array $options, string|\Closure $value): self {
+        $previousRoutes = $this->router->getRoutes();
+        $this->router->group($options, $value);
+        $this->next = $options['prefix'] ?? '';
+        return $this;
+    }
+
+    public function filter(string $name, string|\Closure $callback): self {
+        if (!is_callable($callback)) {
+            throw new \InvalidArgumentException('The $callback parameter must be a callable.');
+        }
+
+        self::$filters[stripQuestionMarks($name)][] = $callback;
+        return $this;
+    }
+
+    public static function addBefore(string $pattern, string $filterName) {
+        if (!is_string($filterName)) {
+            throw new \InvalidArgumentException('The $filterName parameter must be a string.');
+        }
+
+        self::$befores[$pattern][] = $filterName;
+    }
+    
+    public static function addAfter(string $pattern, string $filterName) {
+        if (!is_string($filterName)) {
+            throw new \InvalidArgumentException('The $filterName parameter must be a string.');
+        }
+
+        self::$afters[$pattern][] = $filterName;
+    }
+
+    /**
      * @param string $routeName
      * @return $this
      */
@@ -87,10 +152,10 @@ class Swidly {
     }
 
     /**
-     * @param Callable|string $middleware
+     * @param Closure|string $middleware
      * @return $this
      */
-    public function registerMiddleware(\Callable|string $middleware): self {
+    public function registerMiddleware(\Closure|string $middleware): self {
         self::$middlewares[stripQuestionMarks($this->next)][] = $middleware;
         return $this;
     }
@@ -102,24 +167,53 @@ class Swidly {
      * @param string|null $routeName
      * @return void
      */
-    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, string $routeName = null): void {
+    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, $routeName = null): void
+    {
+        if (!is_string($methods) && !is_array($methods)) {
+            throw new \InvalidArgumentException('The $methods parameter must be a string or an array.');
+        }
+
+        if (!is_string($paths) && !is_array($paths)) {
+            throw new \InvalidArgumentException('The $paths parameter must be a string or an array.');
+        }
+
+        if (!is_string($callback) && !is_callable($callback)) {
+            throw new \InvalidArgumentException('The $callback parameter must be a string or a callable.');
+        }
+
         if (is_array($methods)) {
             foreach ($methods as $method) {
                 if (is_array($paths)) {
                     foreach ($paths as $path) {
-                        $this->router->routes[strtolower($method)][$path] = $callback;
+                        if (!is_string($path)) {
+                            throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                        }
+
+                        $this->router::$routes[strtolower($method)][$path] = $callback;
                     }
                 } else {
-                    $this->router->routes[strtolower($method)][$paths] = $callback;
+                    if (!is_string($paths)) {
+                        throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                    }
+
+                    $this->router::$routes[strtolower($method)][$paths] = $callback;
                 }
             }
         } else {
             if (is_array($paths)) {
                 foreach ($paths as $path) {
-                    $this->router->routes[strtolower($methods)][$path] = $callback;
+                    if (!is_string($path)) {
+                        throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                    }
+
+                    $this->router::$routes[strtolower($methods)][$path] = $callback;
                 }
             } else {
-                $this->router->routes[strtolower($methods)][$paths] = $callback;
+                if (!is_string($paths)) {
+                    throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
+                }
+
+                $this->router::$routes[strtolower($methods)][$paths] = $callback;
             }
         }
 
@@ -135,20 +229,45 @@ class Swidly {
      */
     public function registerRoutes(ReflectionClass $reflectionClass): void
     {
-        $className = $reflectionClass->getName();
-        $methods = $reflectionClass->getMethods();
+        if (!$reflectionClass instanceof ReflectionClass) {
+            throw new \InvalidArgumentException('The $reflectionClass parameter must be a ReflectionClass object.');
+        }
+        
+        try {
+            $className = $reflectionClass->getName();
+            $methods = $reflectionClass->getMethods();
+        } catch (\Exception $e) {
+            // Handle the exception appropriately
+            return;
+        }
 
         foreach ($methods as $method) {
-            $attributes = $method->getAttributes(Route::class);
+            try {
+                $attributes = $method->getAttributes(Route::class);
+            } catch (\Exception $e) {
+                // Handle the exception appropriately
+                continue;
+            }
 
             foreach ($attributes as $attribute) {
-                $instance = $attribute->newInstance();
+                try {
+                    $instance = $attribute->newInstance();
+                } catch (\Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
+                }
+
                 $methods = $instance->methods;
                 $path = $instance->path;
                 $name = $instance->name ?? null;
 
-                $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
-                $this->registerMiddlewares($method, $path);
+                try {
+                    $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
+                    $this->registerMiddlewares($method, $path);
+                } catch (\Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
+                }
             }
         }
     }
@@ -160,21 +279,45 @@ class Swidly {
      */
     public function registerMiddlewares(ReflectionMethod $method, array|string $paths): void
     {
-        $attributes = $method->getAttributes(Middleware::class);
-        
-        if(\count($attributes) > 0) {
+        if (!$method instanceof ReflectionMethod) {
+            throw new \InvalidArgumentException('The $method parameter must be a ReflectionMethod object.');
+        }
+
+        if (!is_array($paths) && !is_string($paths)) {
+            throw new \InvalidArgumentException('The $paths parameter must be an array or a string.');
+        }
+
+        try {
+            $attributes = $method->getAttributes(Middleware::class);
+        } catch (\Exception $e) {
+            // Handle the exception appropriately
+            return;
+        }
+
+        if (\count($attributes) > 0) {
             foreach ($attributes as $attribute) {
-                $instance = $attribute->newInstance();
+                try {
+                    $instance = $attribute->newInstance();
+                } catch (\Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
+                }
+
                 $callback = $instance->callback;
 
-                if (is_array($paths)) {
-                    foreach ($paths as $path) {
-                        $this->next = $path;
+                try {
+                    if (is_array($paths)) {
+                        foreach ($paths as $path) {
+                            $this->next = $path;
+                            $this->registerMiddleware($callback);
+                        }
+                    } else {
+                        $this->next = $paths;
                         $this->registerMiddleware($callback);
                     }
-                } else {
-                    $this->next = $paths;
-                    $this->registerMiddleware($callback);
+                } catch (\Exception $e) {
+                    // Handle the exception appropriately
+                    continue;
                 }
             }
         }
@@ -185,7 +328,8 @@ class Swidly {
      */
     static public function isSinglePage(): bool
     {
-        return Swidly::getConfig('app::single_page', false) === true;
+        $info = self::getThemeInfo();
+        return $info['single_page'] === true;
     }
 
     /**
@@ -193,7 +337,13 @@ class Swidly {
      */
     static public function isRequestJson(): bool
     {
-        return (new Request)->get('HTTP_CONTENT_TYPE') === 'application/json';
+        $contentType = (new Request())->get('HTTP_CONTENT_TYPE') ?? (new Request())->get('CONTENT_TYPE');
+        return $contentType == 'application/json';
+    }
+
+    static public function isAuthenticated(): bool
+    {
+        return isset($_SESSION[Swidly::getConfig('session_name')]);
     }
 
     /**
@@ -208,7 +358,7 @@ class Swidly {
     /**
      * @throws ReflectionException
      */
-    public function run(): void {
+    public function run($doRunCommand = true): void {
         if(file_exists(APP_PATH.'/routes.php')) {
             require_once APP_PATH . '/routes.php';
         } else {
@@ -222,7 +372,9 @@ class Swidly {
             $this->router->run_single_page();
         }
 
-        $this->router->run();
+        if($doRunCommand) {
+            $this->router->run();
+        }
     }
 
     /**
@@ -230,12 +382,26 @@ class Swidly {
      */
     public function loadControllerRoutes(): void
     {
-        $controllers = array_diff(scandir(APP_PATH.'/Controllers/'), array('.', '..'));
+        $theme = self::getConfig('theme', 'default');
+        $controllerRootPath = __DIR__.'/../themes/'. $theme;
+        $controllerPath = $controllerRootPath .'/controllers/';
+
+        if (!is_dir($controllerPath)) {
+            throw new \Exceptionn('Directory does not exists');
+        }
+
+        $controllers = array_diff(scandir($controllerPath), array('.', '..'));
         $controllerFilenames = array_map(fn($controller) => pathinfo($controller)['filename'], $controllers);
 
         foreach ($controllerFilenames as $controller) {
-            $class = '\Swidly\Controllers\\'.$controller;
-            $this->registerRoutes(new \ReflectionClass($class));
+            $class = '\\Swidly\\themes\\'.$theme.'\\controllers\\'.$controller;
+
+            try {
+                $this->registerRoutes(new \ReflectionClass($class));
+            } catch (\ReflectionException $ex) {
+                dump($ex->getMessage());
+                die('Class does not exists: '.$class);
+            }
         }
     }
 
@@ -301,7 +467,7 @@ class Swidly {
      */
     static function getConfig(string $name, mixed $default = ''): mixed {
         if(!isset(Swidly::$config)) {
-            Swidly::$config = parseArray(require_once('Config.php'));
+            Swidly::$config = parseArray(require_once(APP_CORE . '/Config.php'));
         }
         
         if(array_key_exists($name, Swidly::$config) && !empty(Swidly::$config[$name])) {
@@ -310,20 +476,62 @@ class Swidly {
             return $default;
         }
     }
+    
+    /**
+     * @param string $name
+     * @param mixed $value
+     * @return void
+     * @throws SwidlyException
+     */
+    public function setConfigValue(string $name, mixed $value): void {
+        if(!isset(Swidly::$config)) {
+            Swidly::$config = parseArray(require_once(APP_CORE . '/Config.php'));
+        }
+        
+        Swidly::$config[$name] = $value;
+    }
+
+    /**
+     * @param array $config
+     * @return void
+     */
+    public function setConfigValues(array $config): void {
+        foreach ($config as $key => $value) {
+            $this->setConfigValue($key, $value);
+        }
+    }
+
+    public function enableErrorHandling(): void {
+        error_reporting(E_ALL);
+        set_error_handler([$this, 'errorHandler']);
+        set_exception_handler([$this, 'exceptionHandler']);
+    }
 
     /**
      * @param string $path
      * @return string
      */
     static function cleanPath(string $path): string {
+
+        $path = str_replace('\\', '/', $path);
+
+        if(strpos($path, '//') !== false) {
+            $path = str_replace('//', '/', $path);
+        }
+
         return file_exists($path) ? $path : '';
+    }
+
+    protected function runTests($file = null): void {
+        $test = new Test();
+        $test->run($file);
     }
 
     /**
      * @return array
      * @throws SwidlyException
      */
-    static function themePath(): array
+    static function theme(): array
     {
         $themeName = self::getConfig('theme', 'default');
         $themePath = APP_PATH.'/themes/'.$themeName;
@@ -333,11 +541,12 @@ class Swidly {
         }
         $dir = $themePath;
         $url = self::getConfig('url').'/Swidly/themes/'.$themeName;
+
         return [
             'name' => $themeName,
             'base' => $dir,
             'url' => $url,
-            'info' => self::cleanPath($dir.'/'.$themeName.'.info'),
+            'info' => self::cleanPath($dir.'/theme.php'),
             'screenshot' => self::cleanPath($dir.'/screenshot.png'),
         ];
     }
@@ -350,8 +559,9 @@ class Swidly {
     static function load_js_module(string $name): void {
         if(filter_var($name, FILTER_VALIDATE_URL)) {
             echo '<script type="text/javascript" src="'. $name .'"></script>';
+            return;
         } else {
-            $themePath = self::themePath();
+            $themePath = self::theme();
             $jsDir = $themePath['base'].'/js';
             $dir = null;
 
@@ -372,6 +582,7 @@ class Swidly {
                 $parsed_file = pathinfo($jsFile);
                 if(!empty($jsFile)) {
                     echo '<script type="module" src="'. $url.'/js/'.( isset($dir) ? $dir.'/' : '' ).$parsed_file['basename'].'?t='. time()  .'"></script>';
+                    return;
                 }
             }
         }
@@ -404,7 +615,7 @@ class Swidly {
             echo '<link rel="stylesheet" href="'. $name .'">';
             return;
         } else {
-            $themePath = self::themePath();
+            $themePath = self::theme();
             $cssDir = $themePath['base'].'/css';
 
             if($pos = strrpos($name, '/')) {
@@ -443,5 +654,27 @@ class Swidly {
             return false;
         }
         return true;
+    }
+
+    static function getThemeInfo(): array
+    {
+        return File::readArray(self::theme()['info']);
+    }
+
+    static function getTitle(): string
+    {
+        $info = self::getThemeInfo();
+        return $info['title'] ?? '';
+    }
+
+    static function getThemeName(): string
+    {
+        $info = self::getThemeInfo();
+        return $info['name'] ?? '';
+    }
+
+    static function isLoggedIn(): bool
+    {
+        return isset($_SESSION[Swidly::getConfig('session_name')]);
     }
 }

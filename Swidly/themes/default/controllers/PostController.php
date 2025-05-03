@@ -1,17 +1,45 @@
+<<<<<<< HEAD
 <?php
-    namespace Swidly\Controllers;
+namespace Swidly\themes\default\controllers;
 
 use Swidly\Core\Attributes\Middleware;
+use Swidly\Core\Factory\CommandFactory;
+
 use Swidly\Core\Controller;
-    use Swidly\Models\PostModel;
+use Swidly\Core\Attributes\Route;
+use Swidly\Core\Swidly;
+use Swidly\Core\SwidlyException;
+use Swidly\Middleware\CsrfMiddleware;
+
+/**
+ * @throws SwidlyException
+ */
+
+class PostController extends Controller {
+    #[Route(methods: ['GET'], path: '/post')]
+    public function Index($req, $res) {
+        echo 'This is Post controller.';
+    }
+}
+=======
+<?php
+<<<<<<< HEAD:Swidly/themes/single_page/controllers/PostController.php
+    namespace Swidly\themes\single_page\controllers;
+=======
+    namespace Swidly\themes\default\controllers;
+>>>>>>> 264e7cc21600ddd025ea82dfa9ff19115d813106:Swidly/themes/default/controllers/PostController.php
+
+    use Swidly\Core\Attributes\Middleware;
+    use Swidly\Core\Controller;
     use Swidly\Core\Attributes\Route;
-use Swidly\Middleware\AuthMiddleware;
+    use Swidly\Middleware\AuthMiddleware;
 
     class PostController extends Controller {
 
         #[Route('GET', '/posts')]
         function Index($req, $res) {
-            $posts = $this->model->findAll();
+            $model = $this->getModel('PostModel');
+            $posts = $model->findAll();
 
             usort($posts, function ($item1, $item2) {
                 return $item2->getId() <=> $item1->getId();
@@ -22,7 +50,7 @@ use Swidly\Middleware\AuthMiddleware;
 
         #[Route(methods: ['POST'], path: '/posts/add', name: 'addPost')]
         function AddPost($req, $res) {
-            $post = new PostModel();
+            $post = $this->getModel('PostModel');
             $post->setTitle($req->get('title'));
             $post->setBody($req->get('content'));
             $date = date('Y-m-d H:i:s');
@@ -56,3 +84,4 @@ use Swidly\Middleware\AuthMiddleware;
             $postModel->save();
         }
     }
+>>>>>>> 264e7cc21600ddd025ea82dfa9ff19115d813106
