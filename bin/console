@@ -1,0 +1,4 @@
+#!/usr/bin/env php
+<?php
+// must include this
+require_once __DIR__ . '/../Swidly/Core/Console/console.php';
