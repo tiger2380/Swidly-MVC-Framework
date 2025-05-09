@@ -23,10 +23,6 @@ $this->get('/themes/get', function($req, $res) {
     dump($themeInfos);
 });
 
-$this->get('/about/?:id', function($req, $res) {
-    self::render('about');
-});
-
 $this->group(['prefix' => 'api', 'before' => 'changeName'], function($router) {
     $router->get('/setName/:name', function($req, $res) {
         $name = $req->get('name');

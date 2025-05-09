@@ -112,7 +112,6 @@ class Swidly {
      * @return $this
      */
     public function group(array $options, string|\Closure $value): self {
-        $previousRoutes = $this->router->getRoutes();
         $this->router->group($options, $value);
         $this->next = $options['prefix'] ?? '';
         return $this;

@@ -23,4 +23,19 @@ class HomeController extends Controller {
             'data' => ['title' => 'Home'],
         ]);
     }
+
+    /**
+     * @throws SwidlyException
+     */
+    #[Route(methods: ['GET'], path: '/about/?:id/?:num', name: 'about')]
+    function About($req, $res) {
+        $num = (int)$req->get('num', 2);
+        $word = $req->get('id');
+
+        $this->render('about', 
+        [
+            'data' => ['id' => $req->get('id')],
+            'words' => array_fill(0, $num, $word)
+        ]);
+    }
 }
