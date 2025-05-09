@@ -219,8 +219,15 @@ class Swidly {
         }
 
         if (isset($routeName)) {
-            $this->next = $paths;
-            $this->name($routeName);
+            if (is_array($paths)) {
+                foreach($paths as $path) {
+                    $this->next = $path;
+                    $this->name($routeName);
+                }
+            } else {
+                $this->next = $paths;
+                $this->name($routeName);
+            }
         }
     }
 
