@@ -168,6 +168,58 @@ function resize_image($image, $width, $height) {
     }
 }
 
+function resizeImageWebP($image, $width, $height) {
+    $filename = basename($image);
+    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    $dir = dirname(realpath($image));
+
+    if (filter_var($image, FILTER_VALIDATE_URL) == false) {
+        $image = realpath($image);
+        $newImage = $dir.'/'.$filename.'.webp';
+    } else {
+        $newImage = $image;
+    }
+
+    list($img_width, $img_height) = getimagesize($image);
+
+    if (file_exists($dir.'/'.$newImage)) {
+        list($w, $h) = getimagesize($newImage);
+        if ($w == $width && $h == $height) {
+            return $newImage;
+        }
+    }
+
+    $ratio = $img_width / $img_height;
+
+    if($width/$height > $ratio) {
+        $width = $height*$ratio;
+    } else {
+        $height = $width/$ratio;
+    }
+
+    if($original = imagecreatefromstring(file_get_contents($image))) {
+        $destination = imagecreatetruecolor($width, $height);
+        imagealphablending($destination, false);
+
+        if ($ext === 'png') {
+            imagesavealpha($destination, true);
+        }
+        imagecopyresampled($destination, $original, 0, 0, 0, 0, $width, $height, $img_width, $img_height);
+
+        try {
+            imagewebp($destination, $newImage, 100);
+            return $newImage;
+        } catch(Exception $ex) {
+            dd($ex->getMessage());
+        } finally {
+            imagedestroy($destination);
+            imagedestroy($original);
+        }
+    } else {
+        return false;
+    }
+}
+
 function load_default_theme(): array
 {
     return [

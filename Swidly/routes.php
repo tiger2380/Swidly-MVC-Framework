@@ -25,6 +25,16 @@ $this->get('/themes/get', function($req, $res) {
     dump($themeInfos);
 });
 
+$this->get('/thumbnail', function($req, $res) {
+    header('Content-Type: image/webp');
+    $image = $req->get('i');
+    $width = (int) $req->get('w');
+    $height = (int) $req->get('h');
+
+    $result = resizeImageWebP($image, $width, $height);
+    readfile($result);
+});
+
 $this->filter('changeName', function($req, $res) {
     $req->set('name', 'bobby');
 });
