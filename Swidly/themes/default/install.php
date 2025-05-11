@@ -89,7 +89,7 @@
                     <form method="POST" action="?step=2">
                         <div class="mb-3">
                             <label for="purchase_code" class="form-label">Purchase Code</label>
-                            <input type="text" class="form-control" id="purchase_code" name="purchase_code" required>
+                            <input type="text" class="form-control" id="purchase_code" name="purchase_code" required value="123">
                         </div>
                         <button type="submit" class="btn btn-primary">Next</button>
                     </form>
@@ -268,9 +268,6 @@
                 $stmt->execute([$site_name, $site_url, $site_description, $site_keywords, $site_author, $admin_email, 'default', 'en', '']);
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
                 $stmt->execute([$site_name, $admin_email, password_hash($adminPass, PASSWORD_BCRYPT)]);
-
-                runSqlFile('https://meebeestudio.com/api/finish-install?code=' . $purchaseCode, $pdo);
-                
                 ?>
 
                 <h2>Installation Complete</h2>
