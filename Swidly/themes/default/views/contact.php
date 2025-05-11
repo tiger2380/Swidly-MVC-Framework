@@ -1,7 +1,5 @@
-<?php
-
-echo 'contact page';
-?>
+{@include 'inc/header'}
+<?= \Swidly\Core\Store::flashMessage('success') ?>
 <form method="POST">
     <input type="hidden" name="<?= \Swidly\Core\Store::csrf() ?>">
     <label>First Name</label>
@@ -14,3 +12,4 @@ echo 'contact page';
     <textarea name="subject" placeholder="Write something.." style="height:200px"></textarea><br/>
     <input type="submit" value="Submit">
 </form>
+{@include inc/footer}

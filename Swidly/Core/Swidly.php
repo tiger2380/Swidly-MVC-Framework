@@ -366,12 +366,23 @@ class Swidly {
      * @throws ReflectionException
      */
     public function run($doRunCommand = true): void {
+        if (self::getConfig('app::debug', false)) {
+            $this->enableErrorHandling();
+        }
+
+        if (!File::isFile(APP_ROOT . '/installed.php')) {
+            $this->router->runInstall();
+            return;
+        }
+
         if(file_exists(APP_PATH.'/routes.php')) {
             require_once APP_PATH . '/routes.php';
         } else {
             echo 'routes file doesn\'t exists';
             exit();
         }
+
+
 
         $this->loadControllerRoutes();
 

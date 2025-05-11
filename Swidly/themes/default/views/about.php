@@ -1,6 +1,7 @@
-<h1>About Us Page with word {id, default=banana}</h1>
+{@include 'inc/header'}
+<h1>About me</h1>
 
-<strong>For loop</strong>
-<?php foreach($words as $word): ?>
-    <p><?= $word ?></p>
-<?php endforeach; ?>
+<p>Hello, my name is <strong>{first_name} {last_name}</strong></p>
+<p>I was born on <strong>{dob}</strong></p>
+<p>Here is a brief summary about me: <br/> {body}</p>
+{@include inc/footer}

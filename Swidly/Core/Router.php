@@ -285,6 +285,17 @@ class Router
         }
     }
 
+    public function runInstall(): void
+    {
+        try {
+            $basePath = Swidly::theme()['base'];
+            require_once $basePath.'/install.php';
+        } catch(SwidlyException $ex) {
+            Response::setStatusCode($ex->getCode());
+            (new Controller())->render('404', ['message' => $ex->getMessage(), 'code' => $ex->getStatusCode()]);
+        }
+    }
+
     private function handleError(string $message, int $code): void
     {
         Response::setStatusCode($code);
