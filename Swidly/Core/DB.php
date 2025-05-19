@@ -207,9 +207,7 @@ class DB
         } catch (\PDOException $e) {
             // You could log the error here
             // Logger::log($e->getMessage());
-
-            // Re-throw the exception for the caller to handle
-            throw $e;
+            die($e->getMessage());
         }
     }
 

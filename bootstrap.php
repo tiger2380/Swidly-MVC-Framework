@@ -21,6 +21,7 @@ function autoLoader($className): void
         APP_PATH.'Middleware/',
         APP_PATH.'models/',
         APP_PATH.'Libs/',
+        APP_PATH.'Helpers/',
     ];
 
     $filepath = __DIR__.'/'.str_replace('\\', '/', $className).'.php';

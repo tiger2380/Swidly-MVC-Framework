@@ -7,8 +7,8 @@ $db_pass = '';
 $db_charset = 'utf8mb4';
 $db_collation = 'utf8mb4_unicode_ci';
 
-if (file_exists('db.php')) {
-    require_once 'db.php';
+if (file_exists('../db.php')) {
+    require_once '../db.php';
 } 
 
 return [

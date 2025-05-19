@@ -74,7 +74,7 @@ STR;
 
     public function run(): void {
         try {
-            $command = $this->args[0] ?? '';
+            $command = array_shift($this->args) ?? '';
             if (empty($command)) {
                 throw new \InvalidArgumentException("No command specified");
             }
@@ -100,9 +100,10 @@ STR;
 
         // Use factory to create command
         $command = CommandFactory::create($method, [
-            'name' => $this->args[1] ?? '',
+            'name' => array_shift($this->args) ?? '',
             'theme' => $this->theme,
-            'options' => $this->opts
+            'options' => $this->opts,
+            'args' => $this->args
         ]);
         
         $command->execute();

@@ -19,7 +19,18 @@ abstract class AbstractMigration
 
     public function addSql($sql, $params = []): void
     {
-        $this->plannedSql[] = DB::Query($sql, $params);
+        if (is_array($params)) {
+            $params = array_map(function ($param) {
+                return is_string($param) ? "'$param'" : $param;
+            }, $params);
+        }
+        if (is_string($params)) {
+            $params = [$params];
+        }
+        if (is_string($sql)) {
+            $sql = str_replace('?', '%s', $sql);
+        }
+        $this->plannedSql[] = DB::query($sql, $params);
     }
 
     public function getSql(): array

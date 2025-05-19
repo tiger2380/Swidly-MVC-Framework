@@ -38,7 +38,7 @@ STR;
         }
 
         formatPrintLn(['cyan', 'bold'], "Creating model...");
-        $content = sprintf(self::MODEL_TEMPLATE, $theme['name'], ucfirst($name), ucfirst($name));
+        $content = sprintf(self::MODEL_TEMPLATE, $theme['name'], $name, ucfirst($name));
         file_put_contents($modelPath, $content);
     }
 }

@@ -231,7 +231,7 @@ class Router
     {
         $route = $this->parseRequestUri();
         $requestType = strtolower($this->request->getType());
-        
+     
         if (!in_array($requestType, self::ALLOWED_METHODS)) {
             throw new SwidlyException('Method not allowed', 405);
         }
@@ -265,7 +265,6 @@ class Router
 
         if (isset($exp[1])) {
             parse_str($exp[1], $query);
-            dump($query);
             foreach ($query as $key => $value) {
                 $this->request->set($key, $value);
             }

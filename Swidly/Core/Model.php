@@ -7,6 +7,7 @@ namespace Swidly\Core;
 use Swidly\Core\Attributes\Column;
 use Swidly\Core\Attributes\Table;
 use ReflectionClass;
+use Swidly\Core\DB;
 
 class Model
 {
@@ -41,7 +42,7 @@ class Model
      * @return Model|null The model instance or null if not found
      * @throws \RuntimeException If model loading fails
      */
-    static function get(string $model): ?Model 
+    static function load(string $model): ?Model 
     {
         try {
             // Get and validate theme path
@@ -49,7 +50,7 @@ class Model
             
             // Get and validate models directory
             $modelDir = self::getModelsDirectory($themePath);
-            
+    
             // Build and check model file path
             $modelFile = $modelDir . '/' . $model . '.php';
             if (!file_exists($modelFile)) {
