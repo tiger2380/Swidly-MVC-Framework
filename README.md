@@ -6,7 +6,7 @@ Steps to implement this MVC on your server:
 
 1. First, get the code by downloading the zip or cloning the repo.
 1. Run composer... oh right, no composer installation is required!
-1. That's it. To configure, Open [Swidly/Core/Config.php](Swidly/Core/Config.php) and fill out your server information
+1. That's it. To configure, Open [Swidly/Core/config.php](Swidly/Core/config.php) and fill out your server information
 1. Create routes, controllers, views, and models.
 
 Also supports, templating and multi-language. You can edit the file at: [Swidly/lang/en.json](Swidly/lang/en.json). Wrap the word/phrase with {} and the templating system will handle the rest. 
@@ -17,14 +17,14 @@ php -S localhost:8000
 ```
 and then avigate to `localhost:8000` in your browser.
 
-To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/Config.php](Swidly/Core/Config.php) file. Migrate the tables by running this command in the termial:
+To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/config.php](Swidly/Core/config.php) file. Migrate the tables by running this command in the termial:
 ```terminal
 php Swidly/Core/bin/console.php make:migrate --up
 ```
 This will create the tables to run the sample application.
 
 ## Configuration
-The configuration settings are stored under [Swidly/Core/Config.php](Swidly/Core/Config.php)
+The configuration settings are stored under [Swidly/Core/config.php](Swidly/Core/config.php)
 You can access the settings in your code by: `Swidly::getConfig('db::host')`. You can also set a default value by: `Swidly::getConfig('db::host', 'localhost')`.
 
 ### `getConfig(string $name, mixed $default = ''): mixed`

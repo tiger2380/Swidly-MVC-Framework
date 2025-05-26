@@ -36,6 +36,12 @@ class Response
             $url = $this->addReferrer($url, $referrer);
         }
 
+        if (Swidly::getConfig('app::base_url')) {
+            $url = Swidly::getConfig('app::base_url') . $url;
+        } else {
+            $url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . $url;
+        }
+
         if(count($this->messages) > 0) {
             $this->saveMessages();
         }

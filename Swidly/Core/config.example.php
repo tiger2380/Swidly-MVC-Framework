@@ -13,7 +13,8 @@ if (file_exists('../db.php')) {
 
 return [
     'app' => [
-        'title' => 'Not Another PHP MVC',
+        'title' => '',
+        'base_url' => '',
         'favicon' => '',
         'description' => '',
         'single_page' => false

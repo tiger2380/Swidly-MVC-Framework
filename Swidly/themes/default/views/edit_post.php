@@ -1,3 +1,4 @@
+{@include 'inc/header'}
 <form method="POST" action="">
     <input type="hidden" name="csrf" value="<?= \Swidly\Core\Store::csrf() ?>" />
     <input type="hidden" name="slug" value="<?= $blog->getSlug() ?>" />
@@ -5,3 +6,4 @@
     <textarea name="content"><?= $blog->getContent() ?></textarea>
     <button type="submit">Save</button>
 </form>
+{@include 'inc/footer'}

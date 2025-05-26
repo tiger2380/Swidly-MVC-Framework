@@ -94,7 +94,7 @@ STR;
     }
 
     private function handleCommand(string $action, string $method): void {
-        if ($action !== 'make') {
+        if (!in_array($action, ['route', 'migration', 'migrate', 'make', 'list'])) {
             throw new \InvalidArgumentException("Unknown action: $action");
         }
 

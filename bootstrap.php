@@ -6,6 +6,7 @@ const APP_ROOT = __DIR__;
 define('APP_BASE', basename(APP_ROOT));
 const APP_PATH = APP_ROOT . '/Swidly/';
 const APP_CORE = APP_PATH . '/Core';
+define('SWIDLY_CORE', true);
 
 if(file_exists(APP_CORE.'/helpers.php')) {
     require_once APP_CORE . '/helpers.php';

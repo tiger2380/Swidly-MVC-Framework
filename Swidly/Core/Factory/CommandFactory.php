@@ -8,7 +8,7 @@ use Swidly\Core\Commands\ControllerCommand;
 
 class CommandFactory
 {
-    public static function create(string $type, array $options = [])
+    public static function create(string $type, array $options = []) : mixed
     {
         return match($type) {
             'controller' => new ControllerCommand($options),

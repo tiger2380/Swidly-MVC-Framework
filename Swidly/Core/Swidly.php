@@ -8,6 +8,7 @@ use ReflectionException;
 use ReflectionMethod;
 use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Attributes\Route;
+use Swidly\Core\Attributes\RouteGroup;
 
 
 class Swidly {
@@ -167,7 +168,7 @@ class Swidly {
      * @param string|null $routeName
      * @return void
      */
-    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, $routeName = null): void
+    public function addRoute(string|array $methods, string|array $paths, string|callable $callback, $routeName = null, string $groupPrefix = ''): void
     {
         if (!is_string($methods) && !is_array($methods)) {
             throw new \InvalidArgumentException('The $methods parameter must be a string or an array.');
@@ -181,6 +182,10 @@ class Swidly {
             throw new \InvalidArgumentException('The $callback parameter must be a string or a callable.');
         }
 
+        if (!empty($groupPrefix) && !is_string($groupPrefix)) {
+            throw new \InvalidArgumentException('The $groupPrefix parameter must be a string.');
+        }
+
         if (is_array($methods)) {
             foreach ($methods as $method) {
                 if (is_array($paths)) {
@@ -189,14 +194,14 @@ class Swidly {
                             throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
                         }
 
-                        $this->router::$routes[strtolower($method)][$path] = $callback;
+                        $this->router::$routes[strtolower($method)][$groupPrefix.$path] = $callback;
                     }
                 } else {
                     if (!is_string($paths)) {
                         throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
                     }
 
-                    $this->router::$routes[strtolower($method)][$paths] = $callback;
+                    $this->router::$routes[strtolower($method)][$groupPrefix.$paths] = $callback;
                 }
             }
         } else {
@@ -206,14 +211,14 @@ class Swidly {
                         throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
                     }
 
-                    $this->router::$routes[strtolower($methods)][$path] = $callback;
+                    $this->router::$routes[strtolower($methods)][$groupPrefix.$path] = $callback;
                 }
             } else {
                 if (!is_string($paths)) {
                     throw new \InvalidArgumentException('The $paths parameter must be a string or an array of strings.');
                 }
 
-                $this->router::$routes[strtolower($methods)][$paths] = $callback;
+                $this->router::$routes[strtolower($methods)][$groupPrefix.$paths] = $callback;
             }
         }
 
@@ -243,6 +248,8 @@ class Swidly {
         try {
             $className = $reflectionClass->getName();
             $methods = $reflectionClass->getMethods();
+            $groupAttributes = $reflectionClass->getAttributes(RouteGroup::class);
+            $groupPrefix = $groupAttributes ? $groupAttributes[0]->newInstance()->prefix : '';
         } catch (\Exception $e) {
             // Handle the exception appropriately
             return;
@@ -269,7 +276,7 @@ class Swidly {
                 $name = $instance->name ?? null;
 
                 try {
-                    $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name);
+                    $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name, $groupPrefix);
                     $this->registerMiddlewares($method, $path);
                 } catch (\Exception $e) {
                     // Handle the exception appropriately
@@ -485,7 +492,7 @@ class Swidly {
      */
     static function getConfig(string $name, mixed $default = ''): mixed {
         if(!isset(Swidly::$config)) {
-            Swidly::$config = parseArray(require_once(APP_CORE . '/Config.php'));
+            Swidly::$config = parseArray(require_once(APP_CORE . '/config.php'));
         }
         
         if(array_key_exists($name, Swidly::$config) && !empty(Swidly::$config[$name])) {
@@ -503,7 +510,7 @@ class Swidly {
      */
     public function setConfigValue(string $name, mixed $value): void {
         if(!isset(Swidly::$config)) {
-            Swidly::$config = parseArray(require_once(APP_CORE . '/Config.php'));
+            Swidly::$config = parseArray(require_once(APP_CORE . '/config.php'));
         }
         
         Swidly::$config[$name] = $value;

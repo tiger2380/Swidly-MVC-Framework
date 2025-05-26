@@ -9,6 +9,7 @@ class Route {
     public function __construct(
         public array|string $methods, 
         public array|string $path, 
-        public ?string $name = null)
-    {}
+        public ?string $name = null,
+        public ?string $action = null,
+    ){}
 }
