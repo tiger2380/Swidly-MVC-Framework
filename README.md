@@ -34,6 +34,8 @@ ROOT/
 
 </pre>
 
+### the root "index.php" file is only needed when running from built-in PHP server
+
 ## Configuration
 The configuration settings are stored under [Swidly/Core/config.php](Swidly/Core/config.php)
 You can access the settings in your code by: `Swidly::getConfig('db::host')`. You can also set a default value by: `Swidly::getConfig('db::host', 'localhost')`.
