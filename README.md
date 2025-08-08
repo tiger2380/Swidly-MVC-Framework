@@ -18,10 +18,8 @@ php -S localhost:8000
 and then avigate to `localhost:8000` in your browser.
 
 To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/config.php](Swidly/Core/config.php) file. Migrate the tables by running this command in the termial:
-```terminal
-php bin/console --up ma
-```
-This will create the tables to run the sample application.
+
+user the "dump.sql" to generate test database
 
 ## Configuration
 The configuration settings are stored under [Swidly/Core/config.php](Swidly/Core/config.php)
@@ -145,7 +143,7 @@ You can also add middleware to your routes.
 ```php
 class PostController extends Controller {
 
-    #[Route('GET', '/posts')]
+    #[Route(methods: ['GET'], path: ['/blog', '/posts'], name: 'posts')]
     #[Middleware(AuthMiddleware::class)]
     function Index($req, $res) {
         $posts = $this->model->findAll();
@@ -221,7 +219,8 @@ $this->model->findBy(['id' => '123']);
 
 This is example how to insert new data into the database
 ```php
-\Swidly\Core\DB::Table('posts')->Insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
+$db = \Swidly\Core\DB::create();
+$db->table('post')->insert(['post_title' => 'post title', 'poster_id' => 123, 'post_body' => 'this is an example post']);
 ```
 
 Insert data using an entity for example `PostModel`.
@@ -259,7 +258,7 @@ Here is an example of how to use the `Store` class to start a session and save a
 require_once 'path/to/Store.php';
 
 // Start a session
-Store::startSession();
+Store::start();
 
 // Save a value to the session
 Store::save('username', 'JohnDoe');
@@ -344,47 +343,5 @@ Action 1: Hello, World
 ```
 
 You can use the `Hook` class to implement hooks in your PHP project to execute callbacks at specific points in your code.
-
-## Single Page Support (beta)
-Support single page with ease right out-of-the-box
-
-To enable single page support, just add a `<div id="app"></div>` to the index file of the theme and load the single page script: `<?= \Swidly\Core\Swidly::load_single_page(); ?>`
-
-Please see below:
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= Swidly\Core\Swidly::getConfig('app::title') ?></title>
-</head>
-<body>
-    <a href="/" data-sp-link>Home</a> | <a href="/posts" data-sp-link>Posts</a> | <a href="/about" data-sp-link>About</a> | <a href="/contact" data-sp-link>Contact</a> | 
-
-    <div id="app"></div>
-     
-    <?= \Swidly\Core\Swidly::load_single_page(); ?>
-</body>
-</html>
-```
-
-To view the demo, switch to the `single_page` theme and set `single_page` to true in the configuration file:
-```php
-return [
-    'app' => [
-        'title' =>'',
-        ...
-        'single_page' => true
-    ],
-    'default_lang' => 'en',
-    'theme' => 'single_page',
-    ....
-]
-```
-
-Add the `data-sp-link` attribute to any buttons/links that will require navigation using the single page functionality.
-
 
 That's it. No download or installation.
