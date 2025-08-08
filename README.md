@@ -21,6 +21,8 @@ To run the sample, first create a database called `blog` and add your database i
 
 user the "dump.sql" to generate test database
 
+### the root "index.php" file is only needed when running from built-in PHP server
+
 ## Configuration
 The configuration settings are stored under [Swidly/Core/config.php](Swidly/Core/config.php)
 You can access the settings in your code by: `Swidly::getConfig('db::host')`. You can also set a default value by: `Swidly::getConfig('db::host', 'localhost')`.
