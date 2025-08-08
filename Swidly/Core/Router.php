@@ -64,6 +64,30 @@ class Router
         return $this;
     }
 
+    public function post(string $pattern, mixed $callback): self 
+    {
+        $this->validateRoute($pattern, $callback);
+        $this->addRouteFilters($pattern);
+        self::$routes['post'][$this->groupPrefix.$pattern] = $callback;
+        return $this;
+    }
+
+    public function delete(string $pattern, mixed $callback): self 
+    {
+        $this->validateRoute($pattern, $callback);
+        $this->addRouteFilters($pattern);
+        self::$routes['delete'][$this->groupPrefix.$pattern] = $callback;
+        return $this;
+    }
+
+    public function put(string $pattern, mixed $callback): self 
+    {
+        $this->validateRoute($pattern, $callback);
+        $this->addRouteFilters($pattern);
+        self::$routes['put'][$this->groupPrefix.$pattern] = $callback;
+        return $this;
+    }
+
     // Similar changes for post(), delete(), put(), update() methods...
 
     public function any(string $pattern, mixed $callback): self 
@@ -227,11 +251,41 @@ class Router
         }
     }
 
+    protected function setHeaders(): void 
+    {
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        if ($origin === 'http://localhost:8800') {
+            header('Access-Control-Allow-Origin: http://localhost:8800');
+            header('Access-Control-Allow-Credentials: true');
+        }
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS, COOKIE');
+        header('Access-Control-Allow-Headers: Content-Type');
+        header('Access-Control-Max-Age: 3600');
+        header('Access-Control-Allow-Credentials', true);
+        
+        // Handle preflight OPTIONS request
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            header('HTTP/1.1 200 OK');
+            exit();
+        }
+    }
+
+
     protected function map(): void
     {
-        $route = $this->parseRequestUri();
+        $this->setHeaders();
+
         $requestType = strtolower($this->request->getType());
-     
+        $route = $this->request->getUri();
+        $filePath = $_SERVER['DOCUMENT_ROOT'] . '/' . $route;
+        error_log($filePath);
+        if (file_exists($filePath) && is_file($filePath)) {
+            // Serve the file directly
+            $this->serveFile($filePath);
+            return;
+        }
+        $route = $this->parseRequestUri();
+
         if (!in_array($requestType, self::ALLOWED_METHODS)) {
             throw new SwidlyException('Method not allowed', 405);
         }
@@ -254,6 +308,25 @@ class Router
         if (!$matched) {
             throw new SwidlyException('Unknown page', 404);
         }
+    }
+
+    protected function serveFile(string $filePath): void
+    {
+        // Define proper MIME types for different file extensions
+        $mimeTypes = [
+            'js' => 'application/javascript',
+            'mjs' => 'application/javascript',
+            'css' => 'text/css',
+            'html' => 'text/html',
+            'json' => 'application/json',
+        ];
+
+        $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+        $mimeType = $mimeTypes[$extension] ?? mime_content_type($filePath) ?? 'application/octet-stream';
+        
+        header('Content-Type: ' . $mimeType);
+        readfile($filePath);
+        exit;
     }
 
     private function parseRequestUri(): string

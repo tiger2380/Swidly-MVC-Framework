@@ -374,7 +374,7 @@ function renderArrayAsHtml($data, $parent_item = null, $item_index = 0, $block_i
         if ($type === 'button') {
             $controller = new \Swidly\Core\Controller();
             $model = $controller->getModel('PagesModel');
-            $pages = $model->findAll(100, ['active' => 1]);
+            $pages = $model->findAll(['active' => 1], 10);
 
             echo "<div class='block-wrapper mb-4'>";
             echo "<div class='block-label'>{$item->name}</div>";

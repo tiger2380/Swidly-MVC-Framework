@@ -377,13 +377,13 @@ class Swidly {
             $this->enableErrorHandling();
         }
 
-        if (!File::isFile(APP_ROOT . '/installed.php')) {
+        /*if (!File::isFile(APP_ROOT . '/installed.php')) {
             $this->router->runInstall();
             return;
-        }
+        }*/
 
-        if(file_exists(APP_PATH.'/routes.php')) {
-            require_once APP_PATH . '/routes.php';
+        if(file_exists(SWIDLY_ROOT.'/routes.php')) {
+            require_once SWIDLY_ROOT . '/routes.php';
         } else {
             echo 'routes file doesn\'t exists';
             exit();
@@ -392,10 +392,6 @@ class Swidly {
 
 
         $this->loadControllerRoutes();
-
-        if(self::isSinglePage()) {
-            $this->router->run_single_page();
-        }
 
         if($doRunCommand) {
             $this->router->run();
@@ -412,7 +408,7 @@ class Swidly {
         $controllerPath = $controllerRootPath .'/controllers/';
 
         if (!is_dir($controllerPath)) {
-            throw new \Exceptionn('Directory does not exists');
+            throw new \Exception('Directory does not exists');
         }
 
         $controllers = array_diff(scandir($controllerPath), array('.', '..'));
@@ -492,7 +488,7 @@ class Swidly {
      */
     static function getConfig(string $name, mixed $default = ''): mixed {
         if(!isset(Swidly::$config)) {
-            Swidly::$config = parseArray(require_once(APP_CORE . '/config.php'));
+            Swidly::$config = parseArray(require_once(\SWIDLY_CORE . '/config.php'));
         }
         
         if(array_key_exists($name, Swidly::$config) && !empty(Swidly::$config[$name])) {
@@ -510,7 +506,7 @@ class Swidly {
      */
     public function setConfigValue(string $name, mixed $value): void {
         if(!isset(Swidly::$config)) {
-            Swidly::$config = parseArray(require_once(APP_CORE . '/config.php'));
+            Swidly::$config = parseArray(require_once(\SWIDLY_CORE . '/config.php'));
         }
         
         Swidly::$config[$name] = $value;
@@ -547,11 +543,6 @@ class Swidly {
         return file_exists($path) ? $path : '';
     }
 
-    protected function runTests($file = null): void {
-        $test = new Test();
-        $test->run($file);
-    }
-
     /**
      * @return array
      * @throws SwidlyException
@@ -559,7 +550,7 @@ class Swidly {
     static function theme(): array
     {
         $themeName = self::getConfig('theme', 'default');
-        $themePath = APP_PATH.'themes/'.$themeName;
+        $themePath = SWIDLY_ROOT.'themes/'.$themeName;
 
         if(!file_exists($themePath)) {
             throw new SwidlyException('Unknown theme: '.$themeName);
@@ -620,7 +611,7 @@ class Swidly {
      * @throws SwidlyException
      */
     static function load_single_page() {
-        $core_js = APP_CORE.'/scripts/app.js';
+        $core_js = \SWIDLY_CORE.'/scripts/app.js';
         if(file_exists($core_js)) {
             $core_js_path = '/Swidly/Core/scripts/app.js';
             echo '<script type="module" defer src="'.$core_js_path.'"></script>';

@@ -13,6 +13,7 @@ class Response
     private array $messages = [];
     private array $data = [];
     private string $content = '';
+    private array $scriptUrls = [];
 
     public function addHeader($name, $value): static
     {
@@ -30,7 +31,6 @@ class Response
         return $this;
     }
 
-    #[NoReturn]
     public function redirect($url, $referrer = null){
         if($referrer) {
             $url = $this->addReferrer($url, $referrer);
@@ -60,6 +60,12 @@ class Response
         }
     }
 
+    public function addScriptUrl(string $url): static
+    {
+        $this->scriptUrls[] = $url;
+        return $this;
+    }
+
     public function setContent(string $content): static
     {
         $this->content = $content;
@@ -72,24 +78,54 @@ class Response
         if (is_string($name)) {
             $this->data[$name] = $data;
         } else {
-            throw new InvalidArgumentException('Name must be a string');
+            throw new \InvalidArgumentException('Name must be a string');
         }
 
         return $this;
     }
 
+    public function write($script = null): void 
+    {
+        // Set HTML content type header
+        $this->setHeader('Content-Type', 'text/html; charset=UTF-8');
+        
+        // Send all headers
+        foreach ($this->headers as $name => $values) {
+            foreach ($values as $value) {
+                header("$name: $value", true);
+            }
+        }
+    
+        // Output the content
+        echo $this->content;
+    
+        // Add external script URLs if any
+        foreach ($this->scriptUrls as $url) {
+            echo "\n<script type=\"module\" src=\"{$url}\" defer></script>";
+        }
+    
+        // Add inline JavaScript if provided
+        if ($script !== null) {
+            echo "\n<script>\n";
+            echo $script;
+            echo "\n</script>";
+        }
+        
+        exit();
+    }
+
     public function addMessage($subject, $message): static
     {
         if (!is_string($subject)) {
-            throw new InvalidArgumentException('Subject must be a string');
+            throw new \InvalidArgumentException('Subject must be a string');
         }
 
         if (!is_string($message)) {
-            throw new InvalidArgumentException('Message must be a string');
+            throw new \InvalidArgumentException('Message must be a string');
         }
 
         if (isset($this->messages[$subject])) {
-            throw new InvalidArgumentException('Subject already exists');
+            throw new \InvalidArgumentException('Subject already exists');
         }
 
         $this->messages[$subject] = $message;
@@ -104,7 +140,6 @@ class Response
         return $this;
     }
 
-    #[NoReturn]
     public function content(): void
     {
         foreach($this->headers as $header){
@@ -114,7 +149,6 @@ class Response
         echo $this->content;
     }
 
-    #[NoReturn]
     public function json(): void
     {
         // Clear output buffer
@@ -124,8 +158,8 @@ class Response
 		// Create a Response object
 		$R = new \stdClass;
 		$R->status = $this->statusCode;
-		if(!empty($this->message)){
-			$R->msg = $this->message;
+		if(!empty($this->messages)){
+			$R->msg = $this->messages[0];
 		};
 		if(isset($this->data)){
 			$R->data = $this->data;

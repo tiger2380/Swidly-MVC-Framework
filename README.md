@@ -19,7 +19,7 @@ and then avigate to `localhost:8000` in your browser.
 
 To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/config.php](Swidly/Core/config.php) file. Migrate the tables by running this command in the termial:
 ```terminal
-php Swidly/Core/bin/console.php make:migrate --up
+php bin/console --up ma
 ```
 This will create the tables to run the sample application.
 

@@ -9,11 +9,13 @@ class Request
     protected array $request = array();
     protected ?array $server = null;
     protected ?object $user = null;
+    protected ?array $decoded = null;
     public array $vars = array();
     /**
      * @var mixed|void
      */
     private bool $is_authenticated = false;
+    private DB $db;
 
     public function __construct()
     {
@@ -24,8 +26,10 @@ class Request
             $decoded = [];
         }
 
+        $this->decoded = $decoded;
         $this->request = array_merge($_GET, $_POST, $_COOKIE, $_FILES, $decoded, $_SERVER, $_SESSION);
         $this->server = $_SERVER;
+        $this->db = DB::create();
         $this->CheckAuthentication();
     }
 
@@ -125,7 +129,7 @@ class Request
     {
         $response = null;
         if($this->is_authenticated) {
-            $user = DB::Table(Swidly::getConfig('user::table'))->Select()->WhereOnce([Swidly::getConfig('user::auth_field') => Store::get(Swidly::getConfig('session_name'))]);
+            $user = $this->db->table(Swidly::getConfig('user::table'))->Select()->where([Swidly::getConfig('user::auth_field') => Store::get(Swidly::getConfig('session_name'))]);
             $response = (object)$user;
         }
 
@@ -167,15 +171,11 @@ class Request
         $body = [];
 
         if($this->isPost()) {
-            foreach ($_POST as $key => $value) {
-                $body[$key] = filter_input(INPUT_POST, $key);
-            }
+            $body = filter_var_array(array_merge($_POST, $this->decoded ?? []), FILTER_UNSAFE_RAW);
         }
 
         if($this->isGet()) {
-            foreach ($_GET as $key => $value) {
-                $body[$key] = filter_input(INPUT_GET, $key);
-            }
+            $body = filter_var_array(array_merge($_GET, $this->decoded ?? []), FILTER_UNSAFE_RAW);
         }
 
         return $body;

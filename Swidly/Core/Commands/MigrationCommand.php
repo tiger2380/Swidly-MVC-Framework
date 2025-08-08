@@ -86,7 +86,7 @@ STR;
         }
 
         if (isset($options['u']) && $options['u']) {
-            $migrations = APP_PATH . '/Migrations';
+            $migrations = SWIDLY_ROOT . '/Migrations';
             print_r($migrations);
         }
 
@@ -136,7 +136,12 @@ STR;
             }
     
             $migrationFile = $this->createMigration($addUpSqls, $addDownSqls);
-            formatPrintLn(['green'], "✓ Migration file created successfully: " . basename($migrationFile));
+
+            if ($migrationFile) {
+                formatPrintLn(['green'], "✓ Migration file created successfully: " . basename($migrationFile));
+            } else {
+                formatPrintLn(['red'], "X Failed to create Migration file successfully");
+            }
             
         } catch (\Exception $e) {
             formatPrintLn(['red'], "✗ Migration failed: " . $e->getMessage());
@@ -152,7 +157,7 @@ STR;
             formatPrintLn(['cyan', 'bold'], "Starting rollback process...");
             
             // Get the latest migration file
-            $migrationsDir = APP_PATH . 'Migrations/';
+            $migrationsDir = SWIDLY_ROOT . 'Migrations/';
             $files = glob($migrationsDir . 'Version*.php');
             
             if (empty($files)) {
@@ -196,7 +201,7 @@ STR;
     public function executeMigration($theme, $options, $version): void
     {
         // Implementation for executing a specific migration
-        $migrationFile = APP_PATH . 'Migrations/' . $version . '.php';
+        $migrationFile = SWIDLY_ROOT . 'Migrations/' . $version . '.php';
         if (!file_exists($migrationFile)) {
             throw new \RuntimeException("Migration file not found: $migrationFile");
         }
@@ -229,7 +234,7 @@ STR;
         if (isset($name) && !empty($name)) {
             $date = $name;
         }
-        return APP_PATH . 'Migrations/Version' . $date . '.php';
+        return SWIDLY_ROOT . 'Migrations/Version' . $date . '.php';
     }
 
     private function makeMigrationFile($upSqls = [], $downSqls = []): string
@@ -284,6 +289,13 @@ STR;
                     'removed' => 'red',
                     default => 'white'
                 };
+                
+                if (is_array($columns)) {
+                    $columns = array_keys($columns);
+                } else {
+                    $columns = [$columns];
+                }
+                
                 formatPrintLn([$color], ucfirst($type) . ": " . implode(', ', array_keys($columns)));
             }
         }

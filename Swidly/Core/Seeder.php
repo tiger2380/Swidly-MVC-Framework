@@ -4,8 +4,10 @@
  * create a seeder using PHP
  */
 class Seeder {
+    private \Swidly\Core\DB $db;
+    
     public function __construct() {
-        $this->db = DB::instance();
+        $this->db = \Swidly\Core\DB::create();
     }
 
     public function create($name) {

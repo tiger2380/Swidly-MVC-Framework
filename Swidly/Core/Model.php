@@ -178,7 +178,7 @@ class Model
      * @return array Array of model instances
      * @throws SwidlyException If a database error occurs
      */
-    public function findAll(int $limit = 100, array $criteria = []): array
+    public function findAll(array $criteria = [], int $limit = 100): array
     {
         try {
             $query = $this->db->table($this->table)->select();
@@ -191,6 +191,7 @@ class Model
 
             return $results ? array_map(fn($row) => $this->hydrate($row), $results) : [];
         } catch (\Throwable $e) {
+            error_log($e->getMessage());
             throw new SwidlyException("Error fetching records: " . $e->getMessage(), 500, $e);
         }
     }
@@ -203,6 +204,7 @@ class Model
      */
     public function save(): bool
     {
+        error_log('saving');
         try {
             $data = $this->extractData();
 
@@ -226,6 +228,7 @@ class Model
 
             return true;
         } catch (\Throwable $e) {
+            error_log('Error: '.$e->getMessage());
             throw new SwidlyException("Error saving record: " . $e->getMessage(), 500, $e);
         }
     }

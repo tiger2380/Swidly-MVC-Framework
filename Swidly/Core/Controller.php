@@ -110,7 +110,7 @@ class Controller
             throw new \RuntimeException("Failed to load model '$model': " . $e->getMessage(), 0, $e);
         }
 
-        return false;
+        return null;
     }
 
     /**

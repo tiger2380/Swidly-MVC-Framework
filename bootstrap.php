@@ -1,28 +1,29 @@
 <?php
 spl_autoload_register('autoLoader');
 
-const APP_VERSION = '0.0.1';
+const SWIDLY_VERSION = '0.0.1';
 const APP_ROOT = __DIR__;
 define('APP_BASE', basename(APP_ROOT));
-const APP_PATH = APP_ROOT . '/Swidly/';
-const APP_CORE = APP_PATH . '/Core';
-define('SWIDLY_CORE', true);
+const SWIDLY_ROOT = APP_ROOT . '/Swidly/';
+const SWIDLY_CORE = SWIDLY_ROOT . '/Core';
 
-if(file_exists(APP_CORE.'/helpers.php')) {
-    require_once APP_CORE . '/helpers.php';
+if(file_exists(SWIDLY_CORE.'/helpers.php')) {
+    require_once SWIDLY_CORE . '/helpers.php';
 } else {
     echo 'helpers file doesn\'t exists';
 }
 
+\Swidly\Core\Store::start();
+
 function autoLoader($className): void
 {
     $paths = [
-        APP_PATH.'Controllers/',
-        APP_PATH.'Core/',
-        APP_PATH.'Middleware/',
-        APP_PATH.'models/',
-        APP_PATH.'Libs/',
-        APP_PATH.'Helpers/',
+        SWIDLY_ROOT.'Controllers/',
+        SWIDLY_ROOT.'Core/',
+        SWIDLY_ROOT.'Middleware/',
+        SWIDLY_ROOT.'models/',
+        SWIDLY_ROOT.'Libs/',
+        SWIDLY_ROOT.'Helpers/',
     ];
 
     $filepath = __DIR__.'/'.str_replace('\\', '/', $className).'.php';

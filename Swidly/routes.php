@@ -7,7 +7,7 @@
 use Swidly\Middleware\AuthMiddleware;
 
 $this->get('/themes/get', function($req, $res) {
-    $documentRoot = APP_PATH;
+    $documentRoot = SWIDLY_ROOT;
     $themesPath = $documentRoot.'/themes';
     $themeInfos = [];
 

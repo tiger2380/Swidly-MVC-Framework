@@ -10,7 +10,7 @@ $charset = Swidly::getConfig('db::charset');
 
 // Check if the database connection details are set
 if (empty($servername) || empty($dbname) || empty($username) || empty($password)) {
-    throw new \RuntimeException('Database connection details are not set in the configuration.');
+    dd('Database connection details are not set in the configuration.');
 }
 // Check if the database connection details are valid
 if (!is_string($servername) || !is_string($dbname) || !is_string($username) || !is_string($password)) {
@@ -60,17 +60,24 @@ class DB
 
     public function select(array $columns = ['*']): DB
     {
-        $this->queryParts['select'] = 'SELECT ' . implode(', ', $columns) . 'FROM ';
+        $this->queryParts['select'] = 'SELECT ' . implode(', ', $columns) . ' FROM ';
         return $this;
     }
 
     public function where(array $criteria): DB
     {
-        $whereClause = implode(' AND ', array_map(fn($key) => "$key = ?", array_keys($criteria)));
-        $this->queryParts['where'] = "WHERE $whereClause";
+        $whereParts = [];
         foreach ($criteria as $key => $value) {
-            $this->values[] = $value;
+            if (is_null($value)) {
+                $whereParts[] = "$key IS NULL";
+            } elseif (is_array($value) && isset($value['op']) && strtolower($value['op']) === 'not_null') {
+                $whereParts[] = "$key IS NOT NULL";
+            } else {
+                $whereParts[] = "$key = ?";
+                $this->values[] = $value;
+            }
         }
+        $this->queryParts['where'] = "WHERE " . implode(' AND ', $whereParts);
 
         return $this;
     }
@@ -79,6 +86,16 @@ class DB
     public function limit(int $limit, int $offset = 0): DB
     {
         $this->queryParts['limit'] = "LIMIT $offset, $limit";
+        return $this;
+    }
+
+    public function join(string $table, string $on, string $type = 'INNER'): DB
+    {
+        $joinClause = strtoupper($type) . " JOIN $table ON $on";
+        if (!isset($this->queryParts['join'])) {
+            $this->queryParts['join'] = [];
+        }
+        $this->queryParts['join'][] = $joinClause;
         return $this;
     }
 
@@ -91,7 +108,7 @@ class DB
         $this->queryParts = []; // Reset query parts after execution
         $this->values = []; // Reset values after execution
 
-        return $stmt->fetchAll(\PDO::FETCH_OBJ) ?: false;
+        return $stmt->fetchAll(\PDO::FETCH_OBJ) ?: [];
     }
 
     public function printSQL() {
@@ -147,19 +164,58 @@ class DB
         return $stmt->execute($this->values);
     }
 
+    public function saveJSON(string $field, array $data) {
+        
+    }
+
+    public function getJSON(int $id, string $field) {
+        $query = "SELECT {$field} FROM {$this->queryParts['table']} WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$id]);
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return json_decode($result['json_content']);
+    }
+
+    public function updateJsonFields(int $id, string $field, array $data) {
+        $query = "SELECT {$field} FROM {$this->queryParts['table']} WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$id]);
+        $currentData = json_decode($stmt->fetch(\PDO::FETCH_ASSOC)['json_content'], true);
+        
+        // Recursively merge new data with existing data
+        $mergedData = $this->arrayMergeRecursive($currentData, $data);
+        
+        // Update the entire JSON object
+        $query = "UPDATE {$this->queryParts['table']} SET {$field} = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([json_encode($mergedData), $id]);
+    }
+
+    private function arrayMergeRecursive($arr1, $arr2) {
+        foreach ($arr2 as $key => $value) {
+            if (is_array($value) && isset($arr1[$key]) && is_array($arr1[$key])) {
+                $arr1[$key] = $this->arrayMergeRecursive($arr1[$key], $value);
+            } else {
+                $arr1[$key] = $value;
+            }
+        }
+        return $arr1;
+    }
+
     private function buildQuery(): string
     {
-        // Ensure query parts are concatenated in the defined order
-        $orderedParts = ['select', 'update', 'insert', 'delete', 'table', 'where', 'limit'];
-
+        $orderedParts = ['select', 'update', 'insert', 'delete', 'table', 'join', 'where', 'limit'];
         $query = '';
         foreach ($orderedParts as $part) {
             if (!empty($this->queryParts[$part])) {
-                $query .= ' ' . $this->queryParts[$part];
+                if ($part === 'join' && is_array($this->queryParts[$part])) {
+                    $query .= ' ' . implode(' ', $this->queryParts[$part]);
+                } else {
+                    $query .= ' ' . $this->queryParts[$part];
+                }
             }
         }
-
-        return trim($query); // Remove any trailing spaces
+        return trim($query);
     }
 
     /**
@@ -211,4 +267,8 @@ class DB
         }
     }
 
+    public function lastInsertId(): string
+    {
+        return $this->conn->lastInsertId();
+    }
 }

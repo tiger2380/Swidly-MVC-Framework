@@ -99,8 +99,8 @@ STR;
         }
 
         // Use factory to create command
-        $command = CommandFactory::create($method, [
-            'name' => array_shift($this->args) ?? '',
+        $command = CommandFactory::create($action, [
+            'name' => $method,
             'theme' => $this->theme,
             'options' => $this->opts,
             'args' => $this->args
@@ -217,7 +217,7 @@ STR;
         $addDownSqls = [];
 
         foreach ($entities as $entity) {
-            $tableInstance = $entity->getAttributes(Swidly\Core\Attributes\Table::class)[0]->newInstance();
+            $tableInstance = $entity->getAttributes(\Swidly\Core\Attributes\Table::class)[0]->newInstance();
             $tableName = $tableInstance->name;
             $upSql = '';
             $props = $entity->getProperties();
@@ -225,7 +225,7 @@ STR;
             $upSql.= 'CREATE TABLE IF NOT EXISTS '.$tableName.' (';
 
             foreach ($props as $prop) {
-                $attributes = $prop->getAttributes(Swidly\Core\Attributes\Column::class);
+                $attributes = $prop->getAttributes(\Swidly\Core\Attributes\Column::class);
 
                 foreach ($attributes as $attribute) {
                     $name = $prop->getName() ?? '';
