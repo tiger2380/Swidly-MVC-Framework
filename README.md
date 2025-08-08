@@ -19,7 +19,20 @@ and then avigate to `localhost:8000` in your browser.
 
 To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/config.php](Swidly/Core/config.php) file. Migrate the tables by running this command in the termial:
 
-user the "dump.sql" to generate test database
+use the "dump.sql" to generate test database
+
+### the root "index.php" file is only needed when running from built-in PHP server
+
+## Swidly directory tree to get started
+<pre>
+ROOT/
+ ├──Swidly/
+ ├──public/
+   ├──index.php
+ .htaccess
+ bootstrap.php
+
+</pre>
 
 ## Configuration
 The configuration settings are stored under [Swidly/Core/config.php](Swidly/Core/config.php)
