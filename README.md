@@ -19,22 +19,29 @@ and then avigate to `localhost:8000` in your browser.
 
 To run the sample, first create a database called `blog` and add your database information to your [Swidly/Core/config.php](Swidly/Core/config.php) file. Migrate the tables by running this command in the termial:
 
-use the "dump.sql" to generate test database
+use the `dump.sql` to generate test database
 
 ### the root "index.php" file is only needed when running from built-in PHP server
 
-## Swidly directory tree to get started
-<pre>
+## Swidly directory tree
+```plaintext
 ROOT/
- ├──Swidly/
- ├──public/
-   ├──index.php
- .htaccess
- bootstrap.php
+ ├── bin/
+ |   └── console
+ ├── Swidly/
+ │   ├── Core/
+ |   ├── lang/
+ |   ├── Middleware/
+ |   ├── Migrations/ (todo)
+ │   └── themes/
+ │      └── default/ (is where you create your MVC)
+ │          └── theme.php (theme meta)
+ ├── public/
+ │   └──index.php
+ ├── .htaccess
+ └── bootstrap.php (must be in root director)
+```
 
-</pre>
-
-### the root "index.php" file is only needed when running from built-in PHP server
 
 ## Configuration
 The configuration settings are stored under [Swidly/Core/config.php](Swidly/Core/config.php)
@@ -168,6 +175,25 @@ class PostController extends Controller {
     ....
 }
 ```
+Group routing
+` #[RouteGroup(prefix: '[name]')]`
+```php
+ #[RouteGroup(prefix: 'blog')]
+class BlogController extends Controller {
+    #[Route(methods: ['GET'], path: '/')]
+    public function Index($req, $res) {
+        $model = Model::load('BlogModel');
+
+        $blogs = $model->findAll();
+
+        $this->render('blog', [
+            'blogs' => $blogs
+        ]);
+    }
+     ...
+}
+```
+All routes within this controller has a prefix `/blog`
 
 ## Middlewares
 Middlewares can be stored in the [Swidly/Middleware](Swidly/Middleware) directory
@@ -181,19 +207,71 @@ Controller classes contain methods that are the actions. To create an action, ad
 
 You can access route parameters (for example the **id** parameter shown in the route examples above) in actions via the `$request->get('id')` property.
 
+To quickly create a controller/route, run this command in the termial
+```terminal
+php bin/console make:controller contact
+```
+
+This will generate a controller called `Contact` in the controllers directory within your selected theme (eg. default/) directory
+
+```php
+<?php
+namespace Swidly\themes\default\controllers;
+
+use Swidly\Core\Attributes\Middleware;
+use Swidly\Core\Factory\CommandFactory;
+
+use Swidly\Core\Controller;
+use Swidly\Core\Attributes\Route;
+use Swidly\Core\Swidly;
+use Swidly\Core\SwidlyException;
+use Swidly\Middleware\CsrfMiddleware;
+
+/**
+ * @throws SwidlyException
+ */
+
+class ContactController extends Controller {
+    #[Route(methods: ['GET'], path: '/contact')]
+    public function Index($req, $res) {
+        echo 'This is Contact controller.';
+    }
+}
+```
 
 ## Views
 
 Views are used to display information (normally HTML). View files go in the `Swidly/themes/{themename}/views/` folder. Views can be in one of two formats: standard PHP, but with just enough PHP to show the data. No database access or anything like that should occur in a view file. You can render a standard PHP view in a controller, optionally passing in variables, like this:
 
 ```php
-$this->render('home', [
-    'name'    => 'Dave',
-    'data' => ['age' => 24, 'sex' => 'male', 'birthday' => '01/25/1998']
-]);
+#[Route(methods: ['GET'], path: '/about', name: 'about')]
+    function About($req, $res) {
+        $this->render('about', 
+        [
+            'data' => [
+                'first_name' => 'John',
+                'last_name' => 'Doe',
+                'dob' => '01/01/2000',
+                'body' => "this is the body of the about page"
+            ],
+        ]);
+    }
+}
+```
+In the view, you can get the passed parameters like so:
+```php
+{@include 'inc/header'}
+<h1>About me</h1>
+
+<p>Hello, my name is <strong>{first_name} {last_name}</strong></p>
+<p>I was born on <strong>{dob}</strong></p>
+<p>Here is a brief summary about me: <br/> {body}</p>
+{@include inc/footer}
 ```
 
-You can also use the render function in views
+Notice the `{}`. Whatever within the curly brackets will display the data with that name. Use the curly brackets also to display different languages. For example `{hello}` will display `hola` if the [Swidly/Core/lang/es.json](Swidly/Core/lang/es.json) has a config for "hello": "hola" and `'default_lang' => 'es'` is set in the `config.php` file
+
+Also use `{@include 'inc/header'}` to include other views within another view. This example will render the `header` in the about page
 
 ## Models
 Models are used to get and store data in your application. They know nothing about how this data is to be presented in the views. Models extend the `Swidly\Core\Model` class and use [PDO](http://php.net/manual/en/book.pdo.php) to access the database. They're stored in the `Swidly/Models` folder. A sample post model class is included in [Swidly/Models/PostModel.php](Swidly/Models/PostModel.php). 
@@ -241,7 +319,7 @@ $db->table('post')->insert(['post_title' => 'post title', 'poster_id' => 123, 'p
 Insert data using an entity for example `PostModel`.
 
 ```php
-#[Route('POST', '/posts/add', 'addPost')]
+#[Route(metods: ['POST'], path: ['/posts/add'], name: ['addPost'])]
 function AddPost($req, $res) {
     $post = new PostModel();
     $post->setTitle($req->get('title'));
