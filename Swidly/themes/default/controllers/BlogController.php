@@ -44,6 +44,9 @@ class BlogController extends Controller {
     #[Route(methods: ['GET', 'POST'], path: '/:slug/edit')]
     public function Edit($req, $res) {
         $model = Model::load('BlogModel');
+        /**
+         * @var \Swidly\themes\default\models\BlogModel $blog
+         */
         $blog = $model->find(['slug' => $req->get('slug')]);
         if (!$blog) {
             return $res->redirect('/blog');
@@ -66,6 +69,9 @@ class BlogController extends Controller {
 
     #[Route(methods: ['POST'], path: '/post/create')]
     public function Create($req, $res) {
+        /**
+         * @var \Swidly\themes\default\models\BlogModel $blog
+         */
         $blog = Model::load('BlogModel');
 
         if ($req->isPost()) {

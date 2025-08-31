@@ -3,112 +3,193 @@
 declare(strict_types=1);
 
 namespace Swidly\Core;
+
 class File {
     /**
-     * @param string $path
+     * Maximum file size in bytes (100MB)
+     */
+    private const MAX_FILE_SIZE = 104857600;
+
+    /**
+     * Reads a file safely with size validation
+     * @param string $path Absolute path to file
      * @return string
      * @throws SwidlyException
      */
     public static function readFile(string $path): string {
-        if(file_exists($path)) {
-            return file_get_contents($path);
+        $realPath = realpath($path);
+        if ($realPath === false || !is_readable($realPath)) {
+            throw new SwidlyException('File does not exist or is not readable.');
         }
-        throw new SwidlyException('Unable to open file.');
+
+        if (filesize($realPath) > self::MAX_FILE_SIZE) {
+            throw new SwidlyException('File exceeds maximum allowed size.');
+        }
+
+        $content = file_get_contents($realPath);
+        if ($content === false) {
+            throw new SwidlyException('Failed to read file contents.');
+        }
+
+        return $content;
     }
 
     /**
-     * @param string $path
-     * @return string
-     * @throws SwidlyException
+     * Checks if path is a valid file
+     * @param string $path Absolute path to file
+     * @return bool
      */
     public static function isFile(string $path): bool {
-        if(file_exists($path)) {
-            return true;
-        }
-        
-        return false;
+        $realPath = realpath($path);
+        return ($realPath !== false && is_file($realPath) && is_readable($realPath));
     }
 
     /**
-     * @param string $path
-     * @param string $content
+     * Writes content to file safely
+     * @param string $path Absolute path to file
+     * @param string $content Content to write
      * @return bool
      * @throws SwidlyException
      */
     public static function putFile(string $path, string $content): bool {
-        if(file_put_contents($path, $content)) {
-            return true;
+        $directory = dirname($path);
+        
+        if (!is_dir($directory) || !is_writable($directory)) {
+            throw new SwidlyException('Directory does not exist or is not writable.');
         }
-        throw new SwidlyException('Unable to open file.');
+
+        if (file_exists($path) && !is_writable($path)) {
+            throw new SwidlyException('File exists but is not writable.');
+        }
+
+        $result = file_put_contents($path, $content, LOCK_EX);
+        if ($result === false) {
+            throw new SwidlyException('Failed to write file contents.');
+        }
+
+        return true;
     }
 
     /**
-     * @param string $path
-     * @return mixed
+     * Reads and decodes JSON file
+     * @param string $path Absolute path to file
+     * @return array
      * @throws SwidlyException
      */
-     public static function readJson(string $path): array {
+    public static function readJson(string $path): array {
         $content = self::readFile($path);
-        return json_decode($content, true);
+        $data = json_decode($content, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new SwidlyException('Invalid JSON format: ' . json_last_error_msg());
+        }
+
+        return $data;
     }
     
-    public static function readArray(string $path): array | self {
-        if (is_file($path)) {
-            $response = include $path;
-            if (is_array($response)) {
-                return $response;
-            }
+    /**
+     * Reads PHP array from file
+     * @param string $path Absolute path to file
+     * @return array|self
+     * @throws SwidlyException
+     */
+    public static function readArray(string $path): array|self {
+        if (!self::isFile($path)) {
+            throw new SwidlyException('File does not exist or is not readable.');
+        }
 
+        try {
+            $response = include $path;
+        } catch (\Throwable $e) {
+            throw new SwidlyException('Failed to include file: ' . $e->getMessage());
+        }
+
+        if (is_array($response)) {
+            return $response;
+        }
+
+        if (is_object($response)) {
             return new self($response);
         }
 
-        throw new SwidlyException('Unable to open file.');
+        throw new SwidlyException('File did not return an array or object.');
     }
 
     /**
-     * @param string $source
-     * @param string $destination
-     * @param bool $keepOriginal
+     * Copies file with validation
+     * @param string $source Source file path
+     * @param string $destination Destination file path
+     * @param bool $keepOriginal Whether to keep the original file
      * @return bool
      * @throws SwidlyException
      */
     public static function copyFile(string $source, string $destination, bool $keepOriginal = true): bool {
-        $content =  self::readFile($source);
-        if(file_put_contents($destination, $content)) {
-            if(!$keepOriginal) {
-                unlink($source);
-            }
-
-            return true;
+        if (!self::isFile($source)) {
+            throw new SwidlyException('Source file does not exist or is not readable.');
         }
-        throw new SwidlyException('Unable to copy file.');
+
+        $destDir = dirname($destination);
+        if (!is_dir($destDir) || !is_writable($destDir)) {
+            throw new SwidlyException('Destination directory does not exist or is not writable.');
+        }
+
+        if (file_exists($destination) && !is_writable($destination)) {
+            throw new SwidlyException('Destination file exists but is not writable.');
+        }
+
+        $content = self::readFile($source);
+        if (!self::putFile($destination, $content)) {
+            throw new SwidlyException('Failed to copy file.');
+        }
+
+        if (!$keepOriginal) {
+            if (!unlink($source)) {
+                throw new SwidlyException('Failed to remove original file.');
+            }
+        }
+
+        return true;
     }
 
-    public function toJSON() {
-        return json_encode($this);
+    /**
+     * Converts object to JSON
+     * @return string
+     * @throws SwidlyException
+     */
+    public function toJSON(): string {
+        $json = json_encode($this, JSON_THROW_ON_ERROR);
+        if ($json === false) {
+            throw new SwidlyException('Failed to encode object to JSON.');
+        }
+        return $json;
     }
 
-    // covert the object to an array
-    public function toArray() {
+    /**
+     * Converts object to array
+     * @return array
+     */
+    public function toArray(): array {
         return (array) $this;
     }
 
-    // check to see if their a chain method after the call
-    // if so, then we need to call the method and pass the result to the next method
-    // if not, then we need to return the result
-    // if the method is not found, then we need to throw an exception
-    public function __call($name, $arguments) {
-        dump($name, $arguments);
-        if (method_exists($this, $name)) {
-            $result = $this->$name(...$arguments);
-            if (count($arguments) > 0) {
-                $next = $arguments[0];
-                if (is_callable($next)) {
-                    return $next($result);
-                }
-            }
-            return $result;
+    /**
+     * Handles method chaining
+     * @param string $name Method name
+     * @param array $arguments Method arguments
+     * @return mixed
+     * @throws SwidlyException
+     */
+    public function __call(string $name, array $arguments): mixed {
+        if (!method_exists($this, $name)) {
+            throw new SwidlyException("Method '$name' not found.");
         }
-        throw new SwidlyException('Method not found.');
+
+        $result = $this->$name(...$arguments);
+
+        if (!empty($arguments) && is_callable($arguments[0])) {
+            return $arguments[0]($result);
+        }
+
+        return $result;
     }
 }

@@ -358,7 +358,11 @@ class Swidly {
 
     static public function isAuthenticated(): bool
     {
-        return isset($_SESSION[Swidly::getConfig('session_name')]);
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        $sessionName = Swidly::getConfig('session_name');
+        return isset($_SESSION[$sessionName]);
     }
 
     /**
@@ -370,31 +374,20 @@ class Swidly {
         return false !== strpos($contentType, 'multipart/form-data;');
     }
 
-    /**
-     * @throws ReflectionException
-     */
     public function run($doRunCommand = true): void {
         if (self::getConfig('app::debug', false)) {
             $this->enableErrorHandling();
         }
 
-        /*if (!File::isFile(APP_ROOT . '/installed.php')) {
-            $this->router->runInstall();
-            return;
-        }*/
-
-        if(file_exists(SWIDLY_ROOT.'/routes.php')) {
-            require_once SWIDLY_ROOT . '/routes.php';
-        } else {
-            echo 'routes file doesn\'t exists';
-            exit();
+        $routesFile = SWIDLY_ROOT . '/routes.php';
+        if (!file_exists($routesFile) || !is_readable($routesFile)) {
+            throw new \RuntimeException('Routes file does not exist or is not readable.');
         }
-
-
+        require_once $routesFile;
 
         $this->loadControllerRoutes();
 
-        if($doRunCommand) {
+        if ($doRunCommand) {
             $this->router->run();
         }
     }
@@ -405,24 +398,28 @@ class Swidly {
     public function loadControllerRoutes(): void
     {
         $theme = self::getConfig('theme', 'default');
-        $controllerRootPath = __DIR__.'/../themes/'. $theme;
-        $controllerPath = $controllerRootPath .'/controllers/';
+        $controllerRootPath = __DIR__ . '/../themes/' . basename($theme);
+        $controllerPath = $controllerRootPath . '/controllers/';
 
         if (!is_dir($controllerPath)) {
-            throw new \Exception('Directory does not exists');
+            throw new \RuntimeException('Controller directory does not exist: ' . $controllerPath);
         }
 
         $controllers = array_diff(scandir($controllerPath), array('.', '..'));
-        $controllerFilenames = array_map(fn($controller) => pathinfo($controller)['filename'], $controllers);
-
-        foreach ($controllerFilenames as $controller) {
-            $class = '\\Swidly\\themes\\'.$theme.'\\controllers\\'.$controller;
+        foreach ($controllers as $controllerFile) {
+            $filename = pathinfo($controllerFile, PATHINFO_FILENAME);
+            if (!preg_match('/^[A-Za-z0-9_]+$/', $filename)) {
+                continue; // skip suspicious files
+            }
+            $class = '\\Swidly\\themes\\' . $theme . '\\controllers\\' . $filename;
 
             try {
                 $this->registerRoutes(new \ReflectionClass($class));
             } catch (\ReflectionException $ex) {
-                dump($ex->getMessage());
-                die('Class does not exists: '.$class);
+                if (self::getConfig('app::debug', false)) {
+                    error_log('Class does not exist: ' . $class . ' - ' . $ex->getMessage());
+                }
+                continue;
             }
         }
     }
@@ -434,13 +431,11 @@ class Swidly {
     static function activeLink(?string $page = null): void {
         $result = '';
         $self = new self;
-        if(isset($page)) {
-            if($page === $self->request->get('path', null, null, '/')) {
-                $result = ' active';
-            } 
+        $currentPath = $self->request->get('path', null, null, '/');
+        if (isset($page) && $page === $currentPath) {
+            $result = ' active';
         }
-        
-        echo $result;
+        echo htmlspecialchars($result, ENT_QUOTES, 'UTF-8');
     }
 
     /**
@@ -449,13 +444,11 @@ class Swidly {
      */
     public function getNameByURL(string $url): array {
         $values = array_reverse(Swidly::$routeNames);
-        global $base_url;
-        
+        $base_url = self::getConfig('url', '');
         $newArray = array_filter($values, function($var) use ($base_url, $url) {
-            return $base_url.$var === $url;
+            return $base_url . $var === $url;
         });
-        
-        return reset($newArray);
+        return reset($newArray) ?: [];
     }
 
     /**
@@ -574,36 +567,32 @@ class Swidly {
      * @throws SwidlyException
      */
     static function load_js_module(string $name): void {
-        if(filter_var($name, FILTER_VALIDATE_URL)) {
-            echo '<script type="text/javascript" src="'. $name .'"></script>';
+        if (filter_var($name, FILTER_VALIDATE_URL)) {
+            echo '<script type="text/javascript" src="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '"></script>';
             return;
-        } else {
-            $themePath = self::theme();
-            $jsDir = $themePath['base'].'/js';
-            $dir = null;
+        }
+        $themePath = self::theme();
+        $jsDir = $themePath['base'] . '/js';
+        $dir = null;
 
-            if($pos = strrpos($name, '/')) {
-                $dir = substr($name, 0, $pos);
-                $name = substr($name, $pos + 1, strlen($name));
+        if (($pos = strrpos($name, '/')) !== false) {
+            $dir = substr($name, 0, $pos);
+            $name = substr($name, $pos + 1);
+            $jsDir = $jsDir . '/' . $dir;
+        }
 
-                $jsDir = $jsDir.'/'.$dir;
-            }
+        $url = $themePath['url'];
 
-            $url = $themePath['url'];
-
-            if(file_exists($jsDir)) {
-                $files = glob($jsDir.'/*.js');
-
-                $array = preg_grep('/' . $name . '\.js/i', $files);
-                $jsFile = reset($array);
+        if (file_exists($jsDir)) {
+            $files = glob($jsDir . '/*.js');
+            $array = preg_grep('/' . preg_quote($name, '/') . '\.js$/i', $files);
+            $jsFile = reset($array);
+            if (!empty($jsFile)) {
                 $parsed_file = pathinfo($jsFile);
-                if(!empty($jsFile)) {
-                    echo '<script type="module" src="'. $url.'/js/'.( isset($dir) ? $dir.'/' : '' ).$parsed_file['basename'].'?t='. time()  .'"></script>';
-                    return;
-                }
+                echo '<script type="module" src="' . htmlspecialchars($url . '/js/' . ($dir ? $dir . '/' : '') . $parsed_file['basename'], ENT_QUOTES, 'UTF-8') . '?t=' . time() . '"></script>';
+                return;
             }
         }
-        
         throw new SwidlyException('Unable to load module');
     }
 
@@ -627,36 +616,32 @@ class Swidly {
      * @return void
      * @throws SwidlyException
      */
-    static function load_stylesheet_module(string $name):void {
-        if(filter_var($name, FILTER_VALIDATE_URL)) {
-            echo '<link rel="stylesheet" href="'. $name .'">';
+    static function load_stylesheet_module(string $name): void {
+        if (filter_var($name, FILTER_VALIDATE_URL)) {
+            echo '<link rel="stylesheet" href="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '">';
             return;
-        } else {
-            $themePath = self::theme();
-            $cssDir = $themePath['base'].'/css';
+        }
+        $themePath = self::theme();
+        $cssDir = $themePath['base'] . '/css';
 
-            if($pos = strrpos($name, '/')) {
-                $dir = substr($name, 0, $pos);
-                $name = substr($name, $pos + 1, strlen($name));
+        if (($pos = strrpos($name, '/')) !== false) {
+            $dir = substr($name, 0, $pos);
+            $name = substr($name, $pos + 1);
+            $cssDir = $cssDir . '/' . $dir;
+        }
 
-                $cssDir = $cssDir.'/'.$dir;
-            }
+        $url = $themePath['url'];
 
-            $url = $themePath['url'];
-
-            if(file_exists($cssDir)) {
-                $files = glob($cssDir.'/*.css');
-
-                $array = preg_grep('/' . $name . '\.css/i', $files);
-                $cssFile = reset($array);
+        if (file_exists($cssDir)) {
+            $files = glob($cssDir . '/*.css');
+            $array = preg_grep('/' . preg_quote($name, '/') . '\.css$/i', $files);
+            $cssFile = reset($array);
+            if (!empty($cssFile)) {
                 $parsed_file = pathinfo($cssFile);
-                if(!empty($cssFile)) {
-                    echo '<link rel="stylesheet" href="'. $url.'/css/'.( isset($dir) ? $dir.'/' : '' ).$parsed_file['basename'].'?t='. time() .'">';
-                }
+                echo '<link rel="stylesheet" href="' . htmlspecialchars($url . '/css/' . ($dir ? $dir . '/' : '') . $parsed_file['basename'], ENT_QUOTES, 'UTF-8') . '?t=' . time() . '">';
                 return;
             }
         }
-        
         throw new SwidlyException('Unable to load module');
     }
 
