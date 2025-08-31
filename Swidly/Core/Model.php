@@ -162,11 +162,44 @@ class Model
      */
     public function find(array $criteria): ?static
     {
+        if (empty($this->table)) {
+            throw new SwidlyException("No table defined for model " . get_class($this));
+        }
+
         try {
-            $results = $this->db->table($this->table)->select()->where($criteria)->get();
-            return $results ? $this->hydrate($results[0]) : null;
+            $this->validateCriteria($criteria);
+            
+            $results = $this->db->table($this->table)
+                ->select()
+                ->where($criteria)
+                ->limit(1)
+                ->get();
+
+            return !empty($results) ? $this->hydrate($results[0]) : null;
         } catch (\Throwable $e) {
+            error_log("[Model Error] Find failed for table {$this->table}: " . $e->getMessage());
             throw new SwidlyException("Error finding record: " . $e->getMessage(), 500, $e);
+        }
+    }
+
+    /**
+     * Validate search criteria
+     * @throws SwidlyException
+     */
+    private function validateCriteria(array $criteria): void 
+    {
+        if (empty($criteria)) {
+            throw new SwidlyException("Search criteria cannot be empty");
+        }
+
+        foreach ($criteria as $field => $value) {
+            if (!is_string($field)) {
+                throw new SwidlyException("Invalid field name in criteria");
+            }
+            // Validate field exists in model
+            if (!isset($this->props[$field]) && $field !== $this->idField) {
+                throw new SwidlyException("Unknown field '{$field}' in criteria");
+            }
         }
     }
 
@@ -180,18 +213,36 @@ class Model
      */
     public function findAll(array $criteria = [], int $limit = 100): array
     {
+        if (empty($this->table)) {
+            throw new SwidlyException("No table defined for model " . get_class($this));
+        }
+
+        if ($limit < 0) {
+            throw new SwidlyException("Limit cannot be negative");
+        }
+
         try {
-            $query = $this->db->table($this->table)->select();
+            if (!empty($criteria)) {
+                $this->validateCriteria($criteria);
+            }
+
+            $query = $this->db->table($this->table)
+                ->select();
 
             if (!empty($criteria)) {
                 $query->where($criteria);
             }
 
-            $results = $query->limit($limit)->get();
+            $results = $query
+                ->limit($limit)
+                ->get();
 
-            return $results ? array_map(fn($row) => $this->hydrate($row), $results) : [];
+            return !empty($results) 
+                ? array_map(fn($row) => $this->hydrate($row), $results) 
+                : [];
+
         } catch (\Throwable $e) {
-            error_log($e->getMessage());
+            error_log("[Model Error] FindAll failed for table {$this->table}: " . $e->getMessage());
             throw new SwidlyException("Error fetching records: " . $e->getMessage(), 500, $e);
         }
     }
@@ -204,33 +255,101 @@ class Model
      */
     public function save(): bool
     {
-        error_log('saving');
+        if (empty($this->table)) {
+            throw new SwidlyException("No table defined for model " . get_class($this));
+        }
+
         try {
             $data = $this->extractData();
+            
+            // Validate data before saving
+            $this->validateData($data);
 
             if ($this->isNewRecord($data)) {
                 // Insert new record
                 $id = $this->db->table($this->table)->insert($data);
 
+                if (!$id) {
+                    throw new SwidlyException("Failed to insert new record");
+                }
+
                 // Update the ID in the current object if available
-                if ($this->idField && $id) {
+                if ($this->idField) {
                     $setter = 'set' . ucfirst($this->idField);
                     if (method_exists($this, $setter)) {
                         $this->$setter($id);
                     }
                 }
             } else {
+                if (empty($this->idField)) {
+                    throw new SwidlyException("Cannot update record: no ID field defined");
+                }
+
                 // Update existing record
                 $criteria = [$this->idField => $data[$this->idField]];
                 unset($data[$this->idField]); // Don't update the ID field
-                $this->db->table($this->table)->update($data)->where($criteria)->get();
+
+                // Verify record exists before update
+                $exists = $this->db->table($this->table)
+                    ->select()
+                    ->where($criteria)
+                    ->get();
+
+                if (empty($exists)) {
+                    throw new SwidlyException("Record not found for update");
+                }
+
+                $this->db->table($this->table)
+                    ->update($data)
+                    ->where($criteria)
+                    ->get();
             }
 
             return true;
+
         } catch (\Throwable $e) {
-            error_log('Error: '.$e->getMessage());
+            $context = [
+                'table' => $this->table,
+                'modelClass' => get_class($this),
+                'error' => $e->getMessage()
+            ];
+            error_log("[Model Error] Save failed: " . json_encode($context));
             throw new SwidlyException("Error saving record: " . $e->getMessage(), 500, $e);
         }
+    }
+
+    /**
+     * Validate data before saving
+     * @throws SwidlyException
+     */
+    private function validateData(array $data): void
+    {
+        if (empty($data)) {
+            throw new SwidlyException("No data to save");
+        }
+
+        foreach ($data as $field => $value) {
+            // Skip ID field validation for new records
+            if ($field === $this->idField && $this->isNewRecord($data)) {
+                continue;
+            }
+
+            // Validate field exists in model
+            if (!isset($this->props[$field]) && $field !== $this->idField) {
+                throw new SwidlyException("Unknown field '{$field}' in data");
+            }
+
+            // Validate mapped fields
+            if (isset($this->props[$field]['mapping']) && $value !== null) {
+                if (!is_object($value) || !($value instanceof Model)) {
+                    throw new SwidlyException("Invalid mapped value for field '{$field}'");
+                }
+            }
+        }
+
+        // Check for required fields (based on your database schema)
+        // You might want to add schema information to the Column attribute
+        // and check it here
     }
 
     /**
@@ -241,16 +360,44 @@ class Model
      */
     public function remove(): bool
     {
+        if (empty($this->table)) {
+            throw new SwidlyException("No table defined for model " . get_class($this));
+        }
+
         try {
             $data = $this->extractData();
 
-            if (!isset($data[$this->idField]) || empty($this->idField)) {
-                throw new SwidlyException("Cannot remove record: missing ID field", 400);
+            if (empty($this->idField)) {
+                throw new SwidlyException("Cannot remove record: no ID field defined", 400);
             }
 
-            $this->db->table($this->table)->where([$this->idField => $data[$this->idField]])->delete();
+            if (!isset($data[$this->idField])) {
+                throw new SwidlyException("Cannot remove record: missing ID value", 400);
+            }
+
+            // Verify record exists before deletion
+            $exists = $this->db->table($this->table)
+                ->select()
+                ->where([$this->idField => $data[$this->idField]])
+                ->get();
+
+            if (empty($exists)) {
+                throw new SwidlyException("Record not found for deletion", 404);
+            }
+
+            $this->db->table($this->table)
+                ->where([$this->idField => $data[$this->idField]])
+                ->delete();
+
             return true;
         } catch (\Throwable $e) {
+            $context = [
+                'table' => $this->table,
+                'modelClass' => get_class($this),
+                'id' => $data[$this->idField] ?? null,
+                'error' => $e->getMessage()
+            ];
+            error_log("[Model Error] Remove failed: " . json_encode($context));
             throw new SwidlyException("Error removing record: " . $e->getMessage(), 500, $e);
         }
     }
@@ -308,28 +455,88 @@ class Model
         $class = new static();
 
         foreach ($data as $column => $value) {
+            // Validate column name to prevent injection
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+                error_log("[Model Warning] Skipping invalid column name: " . $column);
+                continue;
+            }
+
             $setter = 'set' . ucfirst($column);
 
-            if ($column === $this->idField) {
-                // Set ID directly or use setter if available
-                if (method_exists($class, $setter)) {
-                    $class->$setter($value);
-                } else {
-                    $class->$column = $value;
-                }
-            } elseif (method_exists($class, $setter)) {
-                // Handle property mapping if configured
-                if (isset($this->props[$column]['mapping']) && $this->props[$column]['mapping']) {
-                    $map = new $this->props[$column]['mapping']();
-                    // Map value (assuming there's a method to do this)
-                    $value = $map->find(['id' => $value]);
-                }
+            try {
+                if ($column === $this->idField) {
+                    // Set ID using setter if available
+                    if (method_exists($class, $setter)) {
+                        $class->$setter($this->sanitizeValue($value));
+                    } else {
+                        // Only set property directly if it exists
+                        if (property_exists($class, $column)) {
+                            $class->$column = $this->sanitizeValue($value);
+                        }
+                    }
+                } elseif (method_exists($class, $setter)) {
+                    // Handle property mapping if configured
+                    if (isset($this->props[$column]['mapping']) && $this->props[$column]['mapping']) {
+                        if ($value !== null) {
+                            try {
+                                $mapClass = $this->props[$column]['mapping'];
+                                if (!class_exists($mapClass)) {
+                                    throw new SwidlyException("Mapping class {$mapClass} not found");
+                                }
+                                $map = new $mapClass();
+                                if (!method_exists($map, 'find')) {
+                                    throw new SwidlyException("Mapping class {$mapClass} missing find method");
+                                }
+                                $value = $map->find(['id' => $value]);
+                            } catch (\Throwable $e) {
+                                error_log("[Model Error] Mapping failed for column {$column}: " . $e->getMessage());
+                                $value = null;
+                            }
+                        }
+                    }
 
-                $class->$setter($value);
+                    $class->$setter($this->sanitizeValue($value));
+                }
+            } catch (\Throwable $e) {
+                error_log("[Model Error] Hydration failed for column {$column}: " . $e->getMessage());
+                // Continue with next column
             }
         }
 
         return $class;
+    }
+
+    /**
+     * Sanitize a value before setting it in the model
+     * @param mixed $value The value to sanitize
+     * @return mixed The sanitized value
+     */
+    private function sanitizeValue($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_string($value)) {
+            // Remove null bytes and other potentially harmful characters
+            $value = str_replace(["\0", "\r", "\x1a"], '', $value);
+            
+            // Convert special characters to HTML entities
+            $value = htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            
+            return $value;
+        }
+
+        if (is_array($value)) {
+            return array_map([$this, 'sanitizeValue'], $value);
+        }
+
+        if (is_object($value) && !($value instanceof Model)) {
+            // Convert objects to arrays, except for Model instances
+            return $this->sanitizeValue((array)$value);
+        }
+
+        return $value;
     }
 
     /**

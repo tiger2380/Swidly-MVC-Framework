@@ -6,14 +6,18 @@ use Swidly\Core\Request;
 
 class Controller
 {
-    public ?object $app = null;
-    public mixed $model = null;
-    public array $vars = [];
+    protected ?object $app = null;
+    protected mixed $model = null;
+    protected array $vars = [];
+    protected array $safeIncludePaths = [];
 
+    /**
+     * Initialize controller with application instance
+     * @throws \RuntimeException If app instance is not available
+     */
     public function __construct()
     {
-        global $app;
-        $this->app = $app;
+        $this->safeIncludePaths = [Swidly::theme()['base'] . '/views/'];
     }
 
     /**
@@ -119,11 +123,31 @@ class Controller
      * @return void
      * @throws SwidlyException
      */
+    /**
+     * Render a view page with data
+     * @param string $page Page name without .php extension
+     * @param array $data Data to pass to the view
+     * @throws SwidlyException If page doesn't exist or path traversal is detected
+     */
     public function render(string $page, array $data = []): void
     {
-        $data['data']['sectionImage'] = $data['data']['sectionImage'] ?? '/assets/img/g3c2b47d6be5c231d90519a1694741953bae508ba3634dc8ed55dd7a417eb241565c55cc8498553b629174efd8c63ee15a371e6cc1b9df0dfb679b18935f8171f_640.jpg';
+        // Prevent path traversal attacks
+        if (preg_match('/\.\.\/|\.\.\\\\/', $page)) {
+            throw new SwidlyException('Invalid page path', 400);
+        }
+
+        // Sanitize and set default section image
+        $data['data']['sectionImage'] = filter_var(
+            $data['data']['sectionImage'] ?? '/assets/img/g3c2b47d6be5c231d90519a1694741953bae508ba3634dc8ed55dd7a417eb241565c55cc8498553b629174efd8c63ee15a371e6cc1b9df0dfb679b18935f8171f_640.jpg',
+            FILTER_SANITIZE_URL
+        );
+        
         $base = Swidly::theme()['base'];
-        $page = $base.'/views/'.$page.'.php';
+        if (!$base || !is_dir($base)) {
+            throw new SwidlyException('Invalid theme base path', 500);
+        }
+
+        $page = $base . '/views/' . ltrim($page, '/') . '.php';
         $this->getLanguage();
 
         if (!file_exists($page)) {
@@ -163,39 +187,94 @@ class Controller
      * @param string|null $str
      * @return array|string|null
      */
-    protected function parse($str = null): array|string|null
+    /**
+     * Parse template variables in a string
+     * @param string|null $str String to parse
+     * @return array|string|null Parsed string
+     */
+    protected function parse(?string $str): array|string|null
     {
+        if ($str === null) {
+            return null;
+        }
+
         $vars = $this->vars;
         $pattern = '/{([a-zA-Z0-9_:]+)(?:,\s*default=([a-zA-Z0-9_:]+))?}/';
 
-        return preg_replace_callback($pattern, function ($matches) use ($vars) {
-            $word = $vars[$matches[1]] ?? ($vars['lang'][$matches[1]] ?? $matches[2] ?? null);
-
+        $result = preg_replace_callback($pattern, function ($matches) use ($vars) {
+            $key = htmlspecialchars($matches[1], ENT_QUOTES, 'UTF-8');
+            $default = isset($matches[2]) ? htmlspecialchars($matches[2], ENT_QUOTES, 'UTF-8') : null;
+            
+            $word = $vars[$key] ?? ($vars['lang'][$key] ?? $default ?? null);
             return isset($word) ? $this->parse($word) : '';
         }, $str);
+
+        return $result === null ? '' : $result;
     }
 
+    /**
+     * Load language file based on request or default configuration
+     * @throws SwidlyException If language file is invalid or corrupted
+     */
     protected function getLanguage(): void
     {
-        $default_lang = (new Request())->get('lang', Swidly::getConfig('default_lang'));
-        $lang_path = __DIR__."/../lang/{$default_lang}.json";
-
-        if (file_exists($lang_path)) {
-            $string = file_get_contents($lang_path);
-            $this->lang = json_decode($string, true);
-        } else {
-            echo 'unable to find lang file';
+        $allowedLangs = ['en', 'es']; // Add supported languages
+        $default_lang = (new Request())->get('lang', null, null, Swidly::getConfig('default_lang'));
+        
+        // Validate language code
+        if (!in_array($default_lang, $allowedLangs, true)) {
+            $default_lang = 'en'; // Fallback to English
         }
+
+        $lang_path = __DIR__ . "/../lang/{$default_lang}.json";
+
+        if (!file_exists($lang_path)) {
+            throw new SwidlyException("Language file not found for: {$default_lang}", 404);
+        }
+
+        $string = file_get_contents($lang_path);
+        if ($string === false) {
+            throw new SwidlyException("Failed to read language file: {$default_lang}", 500);
+        }
+
+        $lang_data = json_decode($string, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new SwidlyException("Invalid language file format: {$default_lang}", 500);
+        }
+
+        $this->vars['lang'] = $lang_data;
     }
 
+    /**
+     * Parse and process include directives in templates
+     * @param string $str Template string to parse
+     * @return string Processed template string
+     * @throws SwidlyException If included file path is invalid or file not found
+     */
     public function parseIncludes(string $str): string
     {
         $pattern = '/\{@include\s+[\'"]?([\w.\/-]+)[\'"]?\s*(.*?)}/';
 
         return preg_replace_callback($pattern, function ($matches) {
             $file = $matches[1];
+            
+            // Prevent path traversal
+            if (preg_match('/\.\.\/|\.\.\\\\/', $file)) {
+                throw new SwidlyException('Invalid include path', 400);
+            }
+
             $base = Swidly::theme()['base'];
-            $file = $base.'/views/'.$file.'.php';
+            if (!$base) {
+                throw new SwidlyException('Theme base path not set', 500);
+            }
+
+            $file = $base . '/views/' . ltrim($file, '/') . '.php';
+            
+            // Verify file is within allowed paths
+            $realPath = realpath($file);
+            if (!$realPath || !$this->isPathInSafeDirectories($realPath)) {
+                throw new SwidlyException('Invalid include path', 400);
+            }
             $params = [];
 
             if (!empty($matches[2])) {
@@ -226,6 +305,21 @@ class Controller
 
     public function __get($key)
     {
-        return $this->vars[$key];
+        return $this->vars[$key] ?? null;
+    }
+
+    /**
+     * Check if a file path is within the allowed safe directories
+     * @param string $path Path to check
+     * @return bool True if path is safe, false otherwise
+     */
+    protected function isPathInSafeDirectories(string $path): bool
+    {
+        foreach ($this->safeIncludePaths as $safePath) {
+            if (str_starts_with($path, realpath($safePath))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

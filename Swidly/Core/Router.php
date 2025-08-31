@@ -262,6 +262,10 @@ class Router
         header('Access-Control-Allow-Headers: Content-Type');
         header('Access-Control-Max-Age: 3600');
         header('Access-Control-Allow-Credentials', true);
+        header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
+        header("X-Content-Type-Options: nosniff");
+        header("X-Frame-Options: SAMEORIGIN");
+        header("X-XSS-Protection: 1; mode=block");
         
         // Handle preflight OPTIONS request
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

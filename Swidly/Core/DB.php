@@ -40,11 +40,25 @@ class DB
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
             \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
             \PDO::ATTR_EMULATE_PREPARES => false,
+            \PDO::ATTR_TIMEOUT => 5,  // 5 seconds timeout
+            \PDO::ATTR_PERSISTENT => false, // Disable persistent connections
+            \PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
+            \PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            \PDO::ATTR_CASE => \PDO::CASE_NATURAL,
         ];
+        
+        // Add SSL options if SSL is configured
+        if (Swidly::getConfig('db::ssl_enabled', false)) {
+            $opt[\PDO::MYSQL_ATTR_SSL_CA] = Swidly::getConfig('db::ssl_ca');
+            $opt[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+        }
+
         $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, DB_CHAR);
 
         try {
             $conn = new \PDO($dsn, DB_USER, DB_PASS, $opt);
+            // Set session variables for security
+            $conn->exec("SET SESSION sql_mode = 'STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
         } catch (\PDOException $e) {
             throw new \RuntimeException('Database connection error: ' . $e->getMessage());
         }
@@ -164,31 +178,90 @@ class DB
         return $stmt->execute($this->values);
     }
 
-    public function saveJSON(string $field, array $data) {
+    public function saveJSON(string $field, array $data, int $id): bool {
+        if (empty($field) || empty($data)) {
+            throw new \InvalidArgumentException('Field name and data are required');
+        }
         
+        if (!isset($this->queryParts['table'])) {
+            throw new \RuntimeException('No table specified for JSON save');
+        }
+        
+        $jsonData = json_encode($data, JSON_THROW_ON_ERROR);
+        $query = "UPDATE {$this->queryParts['table']} SET {$field} = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute([$jsonData, $id]);
     }
 
-    public function getJSON(int $id, string $field) {
+    public function getJSON(int $id, string $field): ?array {
+        if ($id <= 0) {
+            throw new \InvalidArgumentException('Invalid ID provided');
+        }
+        if (empty($field)) {
+            throw new \InvalidArgumentException('Field name is required');
+        }
+        if (!isset($this->queryParts['table'])) {
+            throw new \RuntimeException('No table specified for JSON retrieval');
+        }
+
         $query = "SELECT {$field} FROM {$this->queryParts['table']} WHERE id = ?";
         $stmt = $this->conn->prepare($query);
         $stmt->execute([$id]);
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        return json_decode($result['json_content']);
+        
+        if (!$result) {
+            return null;
+        }
+
+        $jsonData = json_decode($result[$field], true, 512, JSON_THROW_ON_ERROR);
+        return $jsonData;
     }
 
-    public function updateJsonFields(int $id, string $field, array $data) {
-        $query = "SELECT {$field} FROM {$this->queryParts['table']} WHERE id = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([$id]);
-        $currentData = json_decode($stmt->fetch(\PDO::FETCH_ASSOC)['json_content'], true);
-        
-        // Recursively merge new data with existing data
-        $mergedData = $this->arrayMergeRecursive($currentData, $data);
-        
-        // Update the entire JSON object
-        $query = "UPDATE {$this->queryParts['table']} SET {$field} = ? WHERE id = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([json_encode($mergedData), $id]);
+    public function updateJsonFields(int $id, string $field, array $data): bool {
+        if ($id <= 0) {
+            throw new \InvalidArgumentException('Invalid ID provided');
+        }
+        if (empty($field)) {
+            throw new \InvalidArgumentException('Field name is required');
+        }
+        if (empty($data)) {
+            throw new \InvalidArgumentException('Data array cannot be empty');
+        }
+        if (!isset($this->queryParts['table'])) {
+            throw new \RuntimeException('No table specified for JSON update');
+        }
+
+        try {
+            $this->conn->beginTransaction();
+
+            $query = "SELECT {$field} FROM {$this->queryParts['table']} WHERE id = ? FOR UPDATE";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$id]);
+            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$result) {
+                throw new \RuntimeException('Record not found');
+            }
+
+            $currentData = json_decode($result[$field] ?? '{}', true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($currentData)) {
+                $currentData = [];
+            }
+
+            // Recursively merge new data with existing data
+            $mergedData = $this->arrayMergeRecursive($currentData, $data);
+            
+            // Update the entire JSON object
+            $query = "UPDATE {$this->queryParts['table']} SET {$field} = ? WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $result = $stmt->execute([json_encode($mergedData, JSON_THROW_ON_ERROR), $id]);
+
+            $this->conn->commit();
+            return $result;
+        } catch (\Exception $e) {
+            $this->conn->rollBack();
+            throw new \RuntimeException('Failed to update JSON fields: ' . $e->getMessage());
+        }
     }
 
     private function arrayMergeRecursive($arr1, $arr2) {
@@ -226,44 +299,112 @@ class DB
      * @return \PDOStatement|false The prepared and executed statement
      * @throws \PDOException If the query preparation or execution fails
      */
-    public static function query(string $sql, array $params = []): \PDOStatement|false {
+    public static function query(string $sql, array $params = []): \PDOStatement {
         try {
-            // Check if connection is established
-           $conn = self::create()->conn;
-            if (!$conn) {
-                throw new \RuntimeException('Database connection not established.');
-            }
             // Check if SQL statement is valid
             if (empty($sql)) {
-                throw new \InvalidArgumentException('SQL statement cannot be empty.');
+                throw new \InvalidArgumentException('SQL statement cannot be empty');
             }
-            // Check if parameters are valid
-            if (!is_array($params)) {
-                throw new \InvalidArgumentException('Parameters must be an array.');
-            }
-            // Check if parameters are not empty
-            foreach ($params as $param) {
-                if (empty($param)) {
-                    throw new \InvalidArgumentException('Parameters cannot be empty.');
+
+            // Basic SQL injection prevention
+            $dangerousPatterns = [
+                '/;\s*DROP\s+/i',
+                '/;\s*DELETE\s+/i',
+                '/;\s*UPDATE\s+/i',
+                '/;\s*INSERT\s+/i',
+                '/;\s*ALTER\s+/i',
+                '/;\s*TRUNCATE\s+/i'
+            ];
+            
+            foreach ($dangerousPatterns as $pattern) {
+                if (preg_match($pattern, $sql)) {
+                    throw new \InvalidArgumentException('Potentially dangerous SQL detected');
                 }
             }
-            // Prepare statement
-            $stmt = $conn->prepare($sql);
 
-            if ($stmt === false) {
-                throw new \PDOException("Failed to prepare SQL statement: " . implode(' ', $conn->errorInfo()));
+            // Get connection with retry mechanism
+            $maxRetries = 3;
+            $retryDelay = 1; // seconds
+            $attempt = 0;
+            $lastException = null;
+
+            while ($attempt < $maxRetries) {
+                try {
+                    $conn = self::create()->conn;
+                    break;
+                } catch (\PDOException $e) {
+                    $lastException = $e;
+                    $attempt++;
+                    if ($attempt < $maxRetries) {
+                        sleep($retryDelay);
+                    }
+                }
             }
 
-            // Execute with parameters
-            if (!$stmt->execute($params)) {
+            if (!isset($conn)) {
+                throw new \RuntimeException('Failed to establish database connection after ' . $maxRetries . ' attempts: ' . $lastException->getMessage());
+            }
+
+            // Use transaction for write operations
+            $isWriteOperation = preg_match('/^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|TRUNCATE)/i', $sql);
+            if ($isWriteOperation) {
+                $conn->beginTransaction();
+            }
+
+            // Prepare and execute statement with timeout
+            $stmt = $conn->prepare($sql);
+            if ($stmt === false) {
+                throw new \PDOException("Failed to prepare SQL statement");
+            }
+
+            // Bind parameters with type checking
+            foreach ($params as $key => $value) {
+                $type = match(gettype($value)) {
+                    'boolean' => \PDO::PARAM_BOOL,
+                    'integer' => \PDO::PARAM_INT,
+                    'NULL' => \PDO::PARAM_NULL,
+                    default => \PDO::PARAM_STR,
+                };
+                
+                if (is_int($key)) {
+                    $stmt->bindValue($key + 1, $value, $type);
+                } else {
+                    $stmt->bindValue($key, $value, $type);
+                }
+            }
+
+            // Execute with timeout
+            $timeout = 30; // seconds
+            set_time_limit($timeout);
+            
+            if (!$stmt->execute()) {
                 throw new \PDOException("Failed to execute SQL statement: " . implode(' ', $stmt->errorInfo()));
+            }
+
+            if ($isWriteOperation) {
+                $conn->commit();
             }
 
             return $stmt;
         } catch (\PDOException $e) {
-            // You could log the error here
-            // Logger::log($e->getMessage());
-            die($e->getMessage());
+            if (isset($conn) && $conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            // Log the error with backtrace
+            error_log(sprintf(
+                "Database error: %s\nSQL: %s\nParams: %s\nTrace: %s",
+                $e->getMessage(),
+                $sql,
+                json_encode($params),
+                $e->getTraceAsString()
+            ));
+            throw new \RuntimeException('A database error occurred. Please check the error logs.');
+        } catch (\Throwable $e) {
+            if (isset($conn) && $conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            error_log("Unexpected error in database query: " . $e->getMessage());
+            throw new \RuntimeException('An unexpected error occurred. Please check the error logs.');
         }
     }
 

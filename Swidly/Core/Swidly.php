@@ -351,7 +351,8 @@ class Swidly {
      */
     static public function isRequestJson(): bool
     {
-        $contentType = (new Request())->get('HTTP_CONTENT_TYPE') ?? (new Request())->get('CONTENT_TYPE');
+        $request = new Request();
+        $contentType = $request->getServer('HTTP_CONTENT_TYPE') ?? $request->getServer('CONTENT_TYPE');
         return $contentType == 'application/json';
     }
 
@@ -434,7 +435,7 @@ class Swidly {
         $result = '';
         $self = new self;
         if(isset($page)) {
-            if($page === $self->request->get('path', '/')) {
+            if($page === $self->request->get('path', null, null, '/')) {
                 $result = ' active';
             } 
         }
@@ -665,7 +666,7 @@ class Swidly {
      */
     static function hideOnPage(array $pages = []) {
         $self = new self();
-        $path = $self->request->get('path', '/');
+        $path = $self->request->get('path', null, null, '/');
         if(count($pages) > 0 && in_array($path, $pages)) {
             return false;
         }

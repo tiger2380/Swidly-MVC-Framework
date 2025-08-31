@@ -16,29 +16,127 @@ class Request
      */
     private bool $is_authenticated = false;
     private DB $db;
+    private const MAX_CONTENT_LENGTH = 10485760; // 10MB
+    private array $trustedProxies = ['127.0.0.1', '::1'];
+    private array $trustedHosts = [];
 
     public function __construct()
     {
-        $content = trim(file_get_contents("php://input"));
-        $decoded = json_decode($content, true);
+        $this->validateContentLength();
+        $this->validateHost();
+        
+        $content = $this->getRequestContent();
+        $decoded = $this->parseJsonContent($content);
 
         if(!is_array($decoded)) {
             $decoded = [];
         }
 
         $this->decoded = $decoded;
-        $this->request = array_merge($_GET, $_POST, $_COOKIE, $_FILES, $decoded, $_SERVER, $_SESSION);
-        $this->server = $_SERVER;
+        $this->request = $this->sanitizeInput(array_merge($_GET, $_POST, $decoded));
+        $this->server = $this->filterServerVars($_SERVER);
         $this->db = DB::create();
         $this->CheckAuthentication();
+    }
+
+    private function validateContentLength(): void
+    {
+        $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        if ($contentLength > self::MAX_CONTENT_LENGTH) {
+            throw new SwidlyException('Content length exceeds maximum allowed size');
+        }
+    }
+
+    private function validateHost(): void
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        if (!empty($this->trustedHosts) && !in_array($host, $this->trustedHosts, true)) {
+            throw new SwidlyException('Invalid host');
+        }
+    }
+
+    private function getRequestContent(): string
+    {
+        $content = file_get_contents("php://input");
+        if ($content === false) {
+            throw new SwidlyException('Failed to read request content');
+        }
+        return trim($content);
+    }
+
+    private function parseJsonContent(string $content): ?array
+    {
+        if (empty($content)) {
+            return [];
+        }
+
+        $contentType = $this->getServer('CONTENT_TYPE', '');
+    
+        // Handle URL-encoded form data
+        if (str_contains($contentType, 'application/x-www-form-urlencoded')) {
+            $decoded = [];
+            parse_str($content, $decoded);
+            return $decoded;
+        }
+        
+        // Handle JSON data
+        if (str_contains($contentType, 'application/json')) {
+            $decoded = json_decode($content, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new SwidlyException('Invalid JSON content: ' . json_last_error_msg());
+            }
+            return $decoded;
+        }
+
+        return [];
+    }
+
+    private function sanitizeInput(array $input): array
+    {
+        $sanitized = [];
+        foreach ($input as $key => $value) {
+            if (is_string($value)) {
+                // Remove NULL bytes and strip HTML tags
+                $value = str_replace(chr(0), '', strip_tags($value));
+            } elseif (is_array($value)) {
+                $value = $this->sanitizeInput($value);
+            }
+            $sanitized[$key] = $value;
+        }
+        return $sanitized;
+    }
+
+    private function filterServerVars(array $server): array
+    {
+        $filtered = [];
+        foreach ($server as $key => $value) {
+            if (is_string($value)) {
+                $value = filter_var($value, FILTER_SANITIZE_STRING);
+            }
+            $filtered[$key] = $value;
+        }
+        return $filtered;
     }
 
     public function set($key, $value) {
         $this->request[$key] = $value;
     }
 
-    public function get($key, $defaultValue = null) {
-        return $this->request[$key] ?? $defaultValue;
+    public function get(string $key, $filter = null, $options = null, $defaultValue = null) {
+        $value = $this->request[$key] ?? $defaultValue;
+
+        if (is_array($value)) {
+            if ($filter !== null) {
+                return filter_var_array($value, $filter, $options ?? []);
+            }
+            return array_map(fn($v) => is_string($v) ? htmlspecialchars($v, ENT_QUOTES | ENT_HTML5, 'UTF-8') : $v, $value);
+        }
+
+        if ($filter !== null) {
+            return filter_var($value, $filter, $options ?? []);
+        }
+        
+        return is_string($value) ? htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') : $value;
     }
 
     public function getServer($key, $defaultValue = null) {
@@ -47,14 +145,6 @@ class Request
 
     public function getCookie($key, $defaultValue = null) {
         return $_COOKIE[$key] ?? $defaultValue;
-    }
-
-    public function getPost($key, $defaultValue = null) {
-        return $_POST[$key] ?? $defaultValue;
-    }
-
-    public function getGet($key, $defaultValue = null) {
-        return $_GET[$key] ?? $defaultValue;
     }
 
     public function getFiles($key, $defaultValue = null) {
@@ -70,9 +160,20 @@ class Request
         return $_SERVER[$key] ?? $defaultValue;
     }
 
-    public function getIp(): string
+    public function getIp(): string 
     {
-        return $this->getServer('REMOTE_ADDR');
+        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        
+        if (strpos($ip, ',') !== false) {
+            $ips = explode(',', $ip);
+            $ip = trim($ips[0]);
+        }
+
+        if (!in_array($ip, $this->trustedProxies, true)) {
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        }
+
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
     }
 
     public function getHost(): string
@@ -156,16 +257,6 @@ class Request
         $this->vars['is_authenticated'] = isset($_SESSION[Swidly::getConfig('session_name')]);
     }
 
-    public function __get($key) {
-        if(isset($this->vars[$key])) {
-            return $this->vars[$key];
-        }
-    }
-
-    public function __set($key, $value) {
-        $this->vars[$key] = $value;
-    }
-
     public function getBody(): array
     {
         $body = [];
@@ -189,5 +280,38 @@ class Request
     {
         return $this->getHeader('X-Requested-With') === 'XMLHttpRequest' ||
             str_contains($this->getContentType() ?? '', 'application/json');
+    }
+
+    public function validateRequestMethod(): void
+    {
+        $method = $this->getMethod();
+        $allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+        
+        if (!in_array($method, $allowedMethods, true)) {
+            throw new SwidlyException('Invalid request method');
+        }
+    }
+
+    public function isSecure(): bool
+    {
+        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+            return true;
+        }
+
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function setTrustedProxies(array $proxies): void
+    {
+        $this->trustedProxies = array_map('strval', $proxies);
+    }
+
+    public function setTrustedHosts(array $hosts): void
+    {
+        $this->trustedHosts = array_map('strval', $hosts);
     }
 }
