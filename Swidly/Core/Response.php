@@ -2,6 +2,8 @@
 
 namespace Swidly\Core;
 
+use Swidly\Core\Store;
+use Swidly\Core\Swidly;
 use JetBrains\PhpStorm\NoReturn;
 
 define('RESPOND_WITH_REQUEST', FALSE);

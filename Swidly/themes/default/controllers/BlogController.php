@@ -1,9 +1,10 @@
 <?php
 namespace Swidly\themes\default\controllers;
 
+use Swidly\Core\View;
 use Swidly\Core\Model;
-use Swidly\Core\Swidly;
 
+use Swidly\Core\Swidly;
 use Swidly\Core\Controller;
 use Swidly\Core\SwidlyException;
 use Swidly\Core\Attributes\Route;
@@ -18,13 +19,19 @@ use Swidly\Core\Factory\CommandFactory;
 
  #[RouteGroup(prefix: 'blog')]
 class BlogController extends Controller {
+    private View $view;
+    public function __construct() {
+        $this->view = new View();
+        $this->view->registerCommonComponents();
+    }
+    
     #[Route(methods: ['GET'], path: '/')]
     public function Index($req, $res) {
         $model = Model::load('BlogModel');
 
         $blogs = $model->findAll();
 
-        $this->render('blog', [
+        return $this->view->render('blog', [
             'blogs' => $blogs
         ]);
     }
@@ -36,7 +43,7 @@ class BlogController extends Controller {
         if (!$blog) {
             return $res->redirect('/blog');
         }
-        $this->render('post', [
+        return $this->view->render('post', [
             'blog' => $blog
         ]);
     }
@@ -62,7 +69,7 @@ class BlogController extends Controller {
             return $res->redirect('blog/'.$data['slug']);
         }
 
-        $this->render('edit_post', [
+        return $this->view->render('edit_post', [
             'blog' => $blog
         ]);
     }
@@ -87,7 +94,7 @@ class BlogController extends Controller {
             return $res->redirect('blog/'.$data['slug']);
         }
 
-        $this->render('edit_post', [
+        return $this->view->render('edit_post', [
             'blog' => $blog
         ]);
     }

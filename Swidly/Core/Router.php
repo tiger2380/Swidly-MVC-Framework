@@ -139,13 +139,13 @@ class Router
     private function executeRouteCallback(mixed $callback): void
     {
         if (is_callable($callback)) {
-            call_user_func_array($callback, array(&$this->request, &$this->response));
+            echo call_user_func_array($callback, array(&$this->request, &$this->response));
         } elseif (is_string($callback) && str_contains($callback, '::')) {
             [$controller, $method] = explode('::', $callback);
             if (class_exists($controller)) {
                 $class = new $controller();
                 if (method_exists($class, $method)) {
-                    call_user_func_array(array($class, $method), array(&$this->request, &$this->response));
+                    echo call_user_func_array(array($class, $method), array(&$this->request, &$this->response));
                 } else {
                     throw new SwidlyException("Method $method not found in controller", 500);
                 }
@@ -282,7 +282,7 @@ class Router
         $requestType = strtolower($this->request->getType());
         $route = $this->request->getUri();
         $filePath = $_SERVER['DOCUMENT_ROOT'] . '/' . $route;
-        error_log($filePath);
+
         if (file_exists($filePath) && is_file($filePath)) {
             // Serve the file directly
             $this->serveFile($filePath);
@@ -368,14 +368,19 @@ class Router
             require_once $basePath.'/install.php';
         } catch(SwidlyException $ex) {
             Response::setStatusCode($ex->getCode());
-            (new Controller())->render('404', ['message' => $ex->getMessage(), 'code' => $ex->getStatusCode()]);
+            $view = new View();
+            $view->registerCommonComponents();
+            $view->render('404', ['message' => $ex->getMessage(), 'code' => $ex->getStatusCode()]);
         }
     }
 
     private function handleError(string $message, int $code): void
     {
         Response::setStatusCode($code);
-        (new Controller())->render('404', [
+        $view = new View();
+        $view->registerCommonComponents();
+
+        $view->render('404', [
             'message' => $message,
             'code' => $code
         ]);
