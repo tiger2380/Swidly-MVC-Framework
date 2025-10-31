@@ -34,14 +34,15 @@ class Button extends Component
     public function render(): string
     {
         $class = match($this->type) {
-            'success' => 'alert-success',
-            'error' => 'alert-danger',
-            'warning' => 'alert-warning',
-            default => 'alert-info',
+            'primary' => 'btn-primary',
+            'secondary' => 'btn-secondary',
+            'success' => 'btn-success',
+            'danger' => 'btn-danger',
+            default => 'btn-default',
         };
 
         return sprintf(
-            "<button class=\"rounded-lg p-4 mb-4 text-sm %s\" %s> %s </button>",
+            "<button class=\"btn rounded-lg p-4 mb-4 text-sm %s\" %s> %s </button>",
             $class,
             $this->attributesToString(),
             $this->getAttribute('slot', ''),
