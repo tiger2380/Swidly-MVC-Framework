@@ -5,7 +5,7 @@
     Your profile has been updated successfully!
 </x-alert>
 
-<x-alert type="error">
-    There was an error processing your request.
-</x-alert>
+<x-button type="success">
+    Click Me!
+</x-button>
 {@include inc/footer}

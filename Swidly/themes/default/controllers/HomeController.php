@@ -24,6 +24,8 @@ class HomeController extends Controller {
      */
     #[Route(methods: ['GET'], path: ['/', '/home'], name: 'home')]
     function Index($req, $res) {
+        $this->view->component('button', \Swidly\themes\default\components\Button::class);
+        
         return $this->view->render('home', [
             'title' => 'Home',
             'message' => 'Hello, World!'

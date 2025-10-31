@@ -68,7 +68,8 @@ class ComponentCompiler
                 )
                 (?<![\/])
             >
-            (?<slot>(?:\s?.+)+)
+            (?<slot>(?:\s?.+)\s?)
+            <\/x-\w+>
         /x
         REGEX;
 
