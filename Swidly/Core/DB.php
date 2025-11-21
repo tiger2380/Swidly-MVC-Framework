@@ -28,6 +28,8 @@ class DB
     private \PDO $conn;
     private array $queryParts = [];
     private array $values = [];
+    private static ?DB $instance = null;
+    private int $transactionDepth = 0;
 
     public function __construct(\PDO $conn)
     {
@@ -64,6 +66,14 @@ class DB
         }
 
         return new self($conn);
+    }
+
+    public static function getInstance(): DB
+    {
+        if (self::$instance === null) {
+            self::$instance = self::create();
+        }
+        return self::$instance;
     }
 
     public function table(string $table): DB
@@ -322,37 +332,24 @@ class DB
                 }
             }
 
-            // Get connection with retry mechanism
-            $maxRetries = 3;
-            $retryDelay = 1; // seconds
-            $attempt = 0;
-            $lastException = null;
+            // Get singleton connection
+            $db = self::getInstance();
+            $conn = $db->conn;
 
-            while ($attempt < $maxRetries) {
-                try {
-                    $conn = self::create()->conn;
-                    break;
-                } catch (\PDOException $e) {
-                    $lastException = $e;
-                    $attempt++;
-                    if ($attempt < $maxRetries) {
-                        sleep($retryDelay);
-                    }
-                }
-            }
-
-            if (!isset($conn)) {
-                throw new \RuntimeException('Failed to establish database connection after ' . $maxRetries . ' attempts: ' . $lastException->getMessage());
-            }
-
-            // Use transaction for write operations
+            // Determine if this is a write operation
             $isWriteOperation = preg_match('/^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|TRUNCATE)/i', $sql);
-            if ($isWriteOperation) {
+
+            // Only start transaction if not already in one
+            if ($isWriteOperation && !$conn->inTransaction()) {
                 $conn->beginTransaction();
+                $db->transactionDepth = 1;
+            } elseif ($isWriteOperation) {
+                $db->transactionDepth++;
             }
 
-            // Prepare and execute statement with timeout
+            // Prepare statement
             $stmt = $conn->prepare($sql);
+
             if ($stmt === false) {
                 throw new \PDOException("Failed to prepare SQL statement");
             }
@@ -381,14 +378,22 @@ class DB
                 throw new \PDOException("Failed to execute SQL statement: " . implode(' ', $stmt->errorInfo()));
             }
 
+            // Only commit if this was the last query in the transaction
             if ($isWriteOperation) {
-                $conn->commit();
+                $db->transactionDepth--;
+                if ($db->transactionDepth <= 0) {
+                    if ($conn->inTransaction()) {
+                        $conn->commit();
+                    }
+                    $db->transactionDepth = 0;
+                }
             }
 
             return $stmt;
         } catch (\PDOException $e) {
-            if (isset($conn) && $conn->inTransaction()) {
+            if (isset($db) && isset($conn) && $conn->inTransaction()) {
                 $conn->rollBack();
+                $db->transactionDepth = 0;
             }
             // Log the error with backtrace
             error_log(sprintf(
@@ -398,10 +403,12 @@ class DB
                 json_encode($params),
                 $e->getTraceAsString()
             ));
+
             throw new \RuntimeException('A database error occurred. Please check the error logs.');
         } catch (\Throwable $e) {
-            if (isset($conn) && $conn->inTransaction()) {
+            if (isset($db) && isset($conn) && $conn->inTransaction()) {
                 $conn->rollBack();
+                $db->transactionDepth = 0;
             }
             error_log("Unexpected error in database query: " . $e->getMessage());
             throw new \RuntimeException('An unexpected error occurred. Please check the error logs.');

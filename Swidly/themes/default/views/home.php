@@ -1,4 +1,4 @@
-{@include 'inc/header'}
+{@layout}
 <h1>Welcome {title}</h1>
 <p>components</p>
 <x-alert type="success" role="alert">
@@ -6,9 +6,9 @@
 </x-alert>
 
 <?php for ($i = 0; $i < 3; $i++): ?>
-    <x-button type="primary" onclick="alert('Button <?php echo $i + 1; ?> clicked!')">
+    <x-button type="success" onclick="alert('Button <?php echo $i + 1; ?> clicked!')">
         button <?php echo $i + 1; ?>
     </x-button>
 <?php endfor; ?>
 
-{@include inc/footer}
+{@endlayout}

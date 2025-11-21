@@ -13,7 +13,7 @@ class Button extends Component
      *
      * @var string
      */
-    public string $type = 'button';
+    public string $type = 'primary' | 'secondary' | 'success' | 'danger' | 'default';
 
     /**
      * Create a new component instance.
@@ -42,7 +42,7 @@ class Button extends Component
         };
 
         return sprintf(
-            "<button class=\"btn rounded-lg p-4 mb-4 text-sm %s\" %s> %s </button>",
+            "<button class=\"btn rounded p-2 mb-1 text-sm %s\" %s> %s </button>",
             $class,
             $this->attributesToString(),
             $this->getAttribute('slot', ''),

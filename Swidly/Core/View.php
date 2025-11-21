@@ -97,7 +97,7 @@ class View
 
         // Compile components
         $components = $this->compiler->compile($contents);
-        return $this->parseIncludes($this->parse($components));
+        return $this->parseIncludes($this->parse($this->layout($components)));
 
     }
 
@@ -240,7 +240,7 @@ class View
                 require_once $file;
                 $content = ob_get_clean();
 
-                return $this->parse($content);
+                return $content;
             }
 
             return '';
@@ -261,4 +261,61 @@ class View
         }
         return false;
     }
+
+    protected function layout(string $content): string {
+        // Step 1: Extract all layout blocks
+        $layoutPattern = '/(?s)\{@layout\s*(?P<attributes>[^}]*)\}\s*(?P<children>.*?)\s*\{@endlayout\}/';
+        preg_match_all($layoutPattern, $content, $matches, PREG_SET_ORDER);
+
+        $layouts = [];
+
+        foreach ($matches as $m) {
+            $attrString = trim($m['attributes']);
+            $children   = trim($m['children']);
+
+            // Step 2: Parse attributes into key/value pairs
+            $attrs = [];
+
+            // This pattern supports: key="value", key='value', key=value, key={json}, flag (true)
+            $attrPattern = '/
+                (\w+)                              # key
+                (?:\s*=\s*                         # optional equal sign
+                    (?:
+                        "([^"]*)"                  # double-quoted value
+                        |\'([^\']*)\'              # single-quoted value
+                        |(\{[^}]*\})               # JSON/object-like value
+                        |([^\s]+)                  # unquoted value
+                    )
+                )?
+            /x';
+
+            preg_match_all($attrPattern, $attrString, $attrMatches, PREG_SET_ORDER);
+
+            foreach ($attrMatches as $a) {
+                $key = $a[1];
+                $value = null;
+
+                // Determine which capture group matched
+                if (!empty($a[2])) {
+                    $value = $a[2]; // double quotes
+                } elseif (!empty($a[3])) {
+                    $value = $a[3]; // single quotes
+                } elseif (!empty($a[4])) {
+                    $value = json_decode($a[4], true) ?? $a[4]; // try decode JSON-like values
+                } elseif (!empty($a[5])) {
+                    $value = $a[5]; // unquoted
+                } else {
+                    $value = true; // flag attribute, like "visible"
+                }
+
+                $attrs[$key] = $value;
+            }
+
+            $layouts[] = [
+                'attributes' => $attrs,
+                'children'   => $children,
+            ];
+        }
+    }
+        
 }
