@@ -17,15 +17,16 @@ class MakeCommand extends AbstractCommand
             throw new \InvalidArgumentException("Action and name are required");
         }
 
+        $this->options['name'] = $name;
         switch ($action) {
             case 'model':
-                $command = CommandFactory::create('model', ['name' => $name, 'theme' => $theme]);
+                $command = CommandFactory::create('model', $this->options);
                 break;
             case 'controller':
-                $command = CommandFactory::create('controller', ['name' => $name, 'theme' => $theme]);
+                $command = CommandFactory::create('controller', $this->options);
                 break;
             case 'migration':
-                $command = CommandFactory::create('migration', ['name' => $name, 'theme' => $theme]);
+                $command = CommandFactory::create('migration', $this->options);
                 break;
             default:
                 throw new \InvalidArgumentException("Unknown action: $action");

@@ -36,17 +36,18 @@ class MigrationCommand extends AbstractCommand
         }
     }
 STR;
+
     public function execute(): void 
     {
         $name = $this->options['name'] ?? '';
         $theme = $this->options['theme'] ?? [];
         $options = $this->options['options'] ?? [];
         $args = $this->options['args'] ?? [];
-        $filename = $args[0] ?? '';
-        
+        $filename = $args[1] ?? '';
+
         switch($name) {
             case 'create':
-                $this->createMigration();
+                $this->createMigrationFromModels($theme, $filename);
                 break;
             case 'migrate':
                 $this->migrate($theme, $options, $filename);
@@ -92,6 +93,39 @@ STR;
 
         if (isset($this->options['verbose']) && $this->options['verbose']) {
             
+        }
+    }
+
+    public function createMigrationFromModels($theme, $filename = null): void
+    {
+        try {
+            formatPrintLn(['cyan', 'bold'], "Creating migration from models...");
+            
+            $entities = $this->getEntities($filename);
+            if (empty($entities)) {
+                throw new \RuntimeException("No entities found to migrate.");
+            }
+    
+            $addUpSqls = [];
+            $addDownSqls = [];
+    
+            foreach ($entities as $entity) {
+                $this->processMigrationForEntity($entity, $addUpSqls, $addDownSqls);
+            }
+    
+            $migrationFile = $this->createMigration($addUpSqls, $addDownSqls);
+
+            if ($migrationFile) {
+                formatPrintLn(['green'], "✓ Migration file created successfully: " . basename($migrationFile));
+            } else {
+                formatPrintLn(['red'], "X Failed to create Migration file successfully");
+            }
+            
+        } catch (\Exception $e) {
+            formatPrintLn(['red'], "✗ Migration creation failed: " . $e->getMessage());
+            if (isset($this->options['verbose']) && $this->options['verbose']) {
+                formatPrintLn(['red'], $e->getTraceAsString());
+            }
         }
     }
 
@@ -190,12 +224,14 @@ STR;
         }
     }
 
-    public function createMigration($upSql = [], $downSql = []): void
+    public function createMigration($upSql = [], $downSql = []): string
     {
         $result = $this->makeMigrationFile($upSql, $downSql);
         $migrationFile = $this->makeMigrationFileName();
 
         file_put_contents($migrationFile, $result);
+
+        return $migrationFile;
     }
 
     public function executeMigration($theme, $options, $version): void
@@ -212,6 +248,7 @@ STR;
         }
 
         $migration = new $migrationClass();
+
         if (isset($options['u'])) {
             if (!method_exists($migration, 'up')) {
                 throw new \RuntimeException("Migration class does not have an 'up' method: $migrationClass");

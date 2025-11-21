@@ -11,6 +11,6 @@ enum Types: string {
     case DATETIME = 'datetime';
     case BIGINT = 'bigint';
     case TEXT = 'text';
-
+    case DECIMAL = 'decimal';
     case TIMESTAMP = 'timestamp';
 }

@@ -98,14 +98,17 @@ STR;
             throw new \InvalidArgumentException("Unknown action: $action");
         }
 
-        // Use factory to create command
-        $command = CommandFactory::create($action, [
+        $options = [
             'name' => $method,
             'theme' => $this->theme,
+            'test' => false,
             'options' => $this->opts,
             'args' => $this->args
-        ]);
-        
+        ];
+
+        // Use factory to create command
+        $command = CommandFactory::create($action, $options);
+
         $command->execute();
     }
     

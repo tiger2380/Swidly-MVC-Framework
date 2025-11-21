@@ -41,7 +41,8 @@ class Swidly {
         private readonly Router    $router = new Router,
     )
     {
-        $this->isSinglePage = self::getConfig('app::single_page', false);
+        $theme = self::theme();
+        define('ROOT_URL', self::getConfig('app::base_url') . '/Swidly/themes/' . $theme['name']);
     }
 
     /**
@@ -615,13 +616,13 @@ class Swidly {
      * @return void
      * @throws SwidlyException
      */
-    static function load_stylesheet_module(string $name): void {
+    static function getStyle(string $name): void {
         if (filter_var($name, FILTER_VALIDATE_URL)) {
             echo '<link rel="stylesheet" href="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '">';
             return;
         }
         $themePath = self::theme();
-        $cssDir = $themePath['base'] . '/css';
+        $cssDir = $themePath['base'] . '/assets';
 
         if (($pos = strrpos($name, '/')) !== false) {
             $dir = substr($name, 0, $pos);
@@ -629,7 +630,7 @@ class Swidly {
             $cssDir = $cssDir . '/' . $dir;
         }
 
-        $url = $themePath['url'];
+        $url = self::getConfig('app::base_url') . trim($themePath['url'], '/');
 
         if (file_exists($cssDir)) {
             $files = glob($cssDir . '/*.css');
@@ -637,7 +638,7 @@ class Swidly {
             $cssFile = reset($array);
             if (!empty($cssFile)) {
                 $parsed_file = pathinfo($cssFile);
-                echo '<link rel="stylesheet" href="' . htmlspecialchars($url . '/css/' . ($dir ? $dir . '/' : '') . $parsed_file['basename'], ENT_QUOTES, 'UTF-8') . '?t=' . time() . '">';
+                echo '<link rel="stylesheet" href="' . htmlspecialchars($url . '/assets/' . ($dir ? $dir . '/' : '') . $parsed_file['basename'], ENT_QUOTES, 'UTF-8') . '?t=' . time() . '">';
                 return;
             }
         }
