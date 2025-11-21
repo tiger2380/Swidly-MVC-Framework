@@ -1,4 +1,4 @@
-{@layout}
+{@layout file="layouts/main" false title="Home Page"}
 <h1>Welcome {title}</h1>
 <p>components</p>
 <x-alert type="success" role="alert">

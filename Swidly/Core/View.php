@@ -262,6 +262,12 @@ class View
         return false;
     }
 
+    /**
+     * Parse layout blocks and apply them to content
+     *
+     * @param  string  $content
+     * @return string
+     */
     protected function layout(string $content): string {
         // Step 1: Extract all layout blocks
         $layoutPattern = '/(?s)\{@layout\s*(?P<attributes>[^}]*)\}\s*(?P<children>.*?)\s*\{@endlayout\}/';
@@ -278,13 +284,13 @@ class View
 
             // This pattern supports: key="value", key='value', key=value, key={json}, flag (true)
             $attrPattern = '/
-                (\w+)                              # key
-                (?:\s*=\s*                         # optional equal sign
+                (\w+)                     
+                (?:\s*=\s*                    
                     (?:
-                        "([^"]*)"                  # double-quoted value
-                        |\'([^\']*)\'              # single-quoted value
-                        |(\{[^}]*\})               # JSON/object-like value
-                        |([^\s]+)                  # unquoted value
+                        "([^"]*)"             
+                        |\'([^\']*)\'          
+                        |(\{[^}]*\})           
+                        |([^\s]+)         
                     )
                 )?
             /x';
@@ -316,6 +322,23 @@ class View
                 'children'   => $children,
             ];
         }
+
+        // Step 3: Apply layouts in reverse order (innermost first)
+        foreach (array_reverse($layouts) as $layout) {
+            $attrs = $layout['attributes'];
+            $children = $layout['children'];
+            $file = $attrs['file'] ?? 'layout';
+            $layoutFile = Swidly::theme()['base'] . '/views/' . ltrim($file, '/') . '.php';
+            if (file_exists($layoutFile)) {
+                extract($attrs);
+                ob_start();
+                require $layoutFile;
+                $content = ob_get_clean();
+
+                //look for {{{children}}} placeholder and replace it
+                $content = str_replace('{{{children}}}', $children, $content);
+            }
+        }
+        return $content;
     }
-        
 }
