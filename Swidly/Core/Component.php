@@ -89,9 +89,21 @@ abstract class Component
      * @param  string  $key
      * @return mixed
      */
-    public function getAttribute(string $key, mixed $default = null): mixed
+    public function getAttribute(string $key, mixed $default = null, bool $asWrapper = false): mixed
     {
-        return $this->attributes->get($key, $default);
+        return $this->attributes->get($key, $default, $asWrapper);
+    }
+
+    /**
+     * Get an attribute as a wrapper for fluent manipulation.
+     *
+     * @param  string  $key
+     * @param  mixed  $default
+     * @return View\Attribute
+     */
+    public function attr(string $key, mixed $default = ''): View\Attribute
+    {
+        return $this->attributes->get($key, $default, true);
     }
 
     /**
@@ -133,5 +145,49 @@ abstract class Component
     protected function compileAttributes(): string
     {
         return $this->attributes->render();
+    }
+
+    protected function mergeAttributes(array $additionalAttributes): void
+    {
+        $this->attributes->merge($additionalAttributes);
+    }
+
+    /**
+     * Merge a value into a specific attribute.
+     *
+     * @param  string  $attribute
+     * @param  string  $value
+     * @param  string  $separator
+     * @return $this
+     */
+    public function mergeAttribute(string $attribute, string $value, string $separator = ' '): static
+    {
+        $this->attributes->mergeAttribute($attribute, $value, $separator);
+        return $this;
+    }
+
+    /**
+     * Merge classes into the class attribute.
+     *
+     * @param  string  $classes
+     * @return $this
+     */
+    public function mergeClass(string $classes): static
+    {
+        $this->attributes->mergeAttribute('class', $classes);
+        return $this;
+    }
+
+    public function getProp(string $key, mixed $default = null): mixed
+    {
+        if (!isset($this->attributes['__props'])) {
+            return $default;
+        }
+        return $this->attributes['__props'][$key] ?? $default;
+    }
+
+    public function getProps(): array
+    {
+        return $this->attributes['__props'] ?? [];
     }
 }

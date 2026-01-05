@@ -64,6 +64,11 @@ class Request
         return trim($content);
     }
 
+    public function getRequestUri(): string
+    {
+        return $this->getServer('REQUEST_URI', '/');
+    }
+
     private function parseJsonContent(string $content): ?array
     {
         if (empty($content)) {
@@ -111,7 +116,7 @@ class Request
         $filtered = [];
         foreach ($server as $key => $value) {
             if (is_string($value)) {
-                $value = filter_var($value, FILTER_SANITIZE_STRING);
+                $value = htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
             $filtered[$key] = $value;
         }
@@ -135,7 +140,7 @@ class Request
         if ($filter !== null) {
             return filter_var($value, $filter, $options ?? []);
         }
-        
+
         return is_string($value) ? htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') : $value;
     }
 

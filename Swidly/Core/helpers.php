@@ -1,5 +1,81 @@
 <?php
+use PDO;
+use DOMXPath;
+use Exception;
+use DOMDocument;
 use \Swidly\Core;
+use Swidly\Core\File;
+use Swidly\Core\Model;
+use Swidly\Core\Store;
+use Swidly\Core\Swidly;
+use Swidly\Core\Response;
+
+/**
+ * Generate a URL for an asset file
+ * @param string $path Path to the asset relative to the assets directory
+ * @param string|null $theme Optional theme name (defaults to current theme)
+ * @return string Full URL to the asset
+ */
+function asset(string $path, ?string $theme = null): string
+{
+    // Get base URL from config
+    $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    $baseUrl = rtrim($baseUrl, '/');
+
+    // Get theme info
+    if ($theme === null) {
+        $themeInfo = Swidly::theme();
+        $themeName = $themeInfo['name'] ?? 'default';
+    } else {
+        $themeName = $theme;
+    }
+
+    // Clean up the path
+    $path = ltrim($path, '/');
+
+    // Build the asset URL
+    return $baseUrl . '/Swidly/themes/' . $themeName . '/assets/' . $path;
+}
+
+/**
+ * Start a new section.
+ * 
+ * @param string $section
+ * @return void
+ */
+function section(string $section): void
+{
+    if (isset($GLOBALS['__view'])) {
+        $GLOBALS['__view']->section($section);
+    }
+}
+
+/**
+ * End the current section.
+ * 
+ * @return void
+ */
+function endSection(): void
+{
+    if (isset($GLOBALS['__view'])) {
+        $GLOBALS['__view']->endSection();
+    }
+}
+
+/**
+ * Yield the content for a section.
+ * 
+ * @param string $section
+ * @param string $default
+ * @return string
+ */
+function yieldSection(string $section, string $default = ''): string
+{
+    if (isset($GLOBALS['__view'])) {
+        return $GLOBALS['__view']->yield($section, $default);
+    }
+    return $default;
+}
 
 function dump($input, $stop = false): void
 {
@@ -9,11 +85,84 @@ function dump($input, $stop = false): void
     $file = $trace[0]['file'];
     echo '<pre style="display: inline-block; background: rgba(0,0,0,0.8); color: white; padding: 1.4rem;">';
     echo '<span style="color: #FF0000;">'.$file.':'.$line.'</span><br/>';
-    print_r($input);
+    
+    // Make arrays and objects collapsable
+    if (is_array($input) || is_object($input)) {
+        echo '<details style="cursor: pointer; margin-top: 0.5rem; margin-left: 0;">';
+        echo '<summary style="color: #00FF00; user-select: none;">Click to expand ' . (is_array($input) ? 'array' : 'object') . '</summary>';
+        echo '<div style="margin-top: 0.5rem; margin-left: 1rem;">';
+        _renderNested($input, 0);
+        echo '</div>';
+        echo '</details>';
+    } else {
+        print_r($input);
+    }
+    
     echo '</pre><br/>';
     
     if($stop) {
         exit();
+    }
+}
+
+function _renderNested($input, $depth = 0): void
+{
+    $indent = str_repeat('  ', $depth);
+    
+    if (is_array($input)) {
+        echo "Array<br/>";
+        foreach ($input as $key => $value) {
+            echo $indent . '<span style="color: #FFD700;">["' . htmlspecialchars((string)$key) . '"]</span> => ';
+            
+            if (is_array($value) || is_object($value)) {
+                echo '<details style="cursor: pointer; display: inline;">';
+                echo '<summary style="color: #00FF00; user-select: none; display: inline;">expand</summary>';
+                echo '<div style="margin-left: ' . (($depth + 1) * 20) . 'px; margin-top: 0.3rem;">';
+                _renderNested($value, $depth + 1);
+                echo '</div>';
+                echo '</details><br/>';
+            } else {
+                _renderValue($value);
+                echo '<br/>';
+            }
+        }
+    } elseif (is_object($input)) {
+        echo get_class($input) . "<br/>";
+        $reflectionClass = new ReflectionClass($input);
+        $properties = $reflectionClass->getProperties(ReflectionProperty::IS_PUBLIC | ReflectionProperty::IS_PROTECTED | ReflectionProperty::IS_PRIVATE);
+        
+        foreach ($properties as $property) {
+            $property->setAccessible(true);
+            $value = $property->getValue($input);
+            echo $indent . '<span style="color: #FFD700;">$' . htmlspecialchars($property->getName()) . '</span> => ';
+            
+            if (is_array($value) || is_object($value)) {
+                echo '<details style="cursor: pointer; display: inline;">';
+                echo '<summary style="color: #00FF00; user-select: none; display: inline;">expand</summary>';
+                echo '<div style="margin-left: ' . (($depth + 1) * 20) . 'px; margin-top: 0.3rem;">';
+                _renderNested($value, $depth + 1);
+                echo '</div>';
+                echo '</details><br/>';
+            } else {
+                _renderValue($value);
+                echo '<br/>';
+            }
+        }
+    }
+}
+
+function _renderValue($value): void
+{
+    if ($value === null) {
+        echo '<span style="color: #888;">NULL</span>';
+    } elseif (is_bool($value)) {
+        echo '<span style="color: #FF6B6B;">' . ($value ? 'true' : 'false') . '</span>';
+    } elseif (is_numeric($value)) {
+        echo '<span style="color: #4ECDC4;">' . htmlspecialchars((string)$value) . '</span>';
+    } elseif (is_string($value)) {
+        echo '<span style="color: #95E1D3;">"' . htmlspecialchars($value) . '"</span>';
+    } else {
+        echo '<span style="color: #AAA;">' . htmlspecialchars(gettype($value)) . '</span>';
     }
 }
 
@@ -373,7 +522,7 @@ function renderArrayAsHtml($data, $parent_item = null, $item_index = 0, $block_i
 
         if ($type === 'button') {
             $controller = new \Swidly\Core\Controller();
-            $model = $controller->getModel('PagesModel');
+            $model = Model::load('PagesModel');
             $pages = $model->findAll(['active' => 1], 10);
 
             echo "<div class='block-wrapper mb-4'>";
@@ -980,4 +1129,277 @@ function compareWithCache(string $key, mixed $newData): bool|array {
     }
 
     return $changes;
+}
+
+function getClientIp(): string {
+    return $_SERVER['HTTP_CLIENT_IP']
+        ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? strtok($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0', ',');
+}
+
+function geoByIpWithIpApi(string $ip): ?array {
+    $url = "http://ip-api.com/json/{$ip}?fields=status,message,lat,lon";
+    $json = @file_get_contents($url);
+    if ($json === false) return null;
+    $data = json_decode($json, true);
+    if (!isset($data['status']) || $data['status'] !== 'success') return null;
+    return ['lat' => $data['lat'], 'lon' => $data['lon']];
+}
+
+/**
+ * Generate a permalink for a blog post
+ * @param string $slug Post slug
+ * @param array $params Optional URL parameters
+ * @param string $baseUrl Base URL of the site
+ * @return string
+ */
+function getPermalink(string $slug, array $params = [], string $baseUrl = ''): string 
+{
+    // Get base URL from config if not provided
+    if (empty($baseUrl)) {
+        $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    }
+
+    // Build the permalink
+    $permalink = rtrim($baseUrl, '/') . '/' . $slug;
+
+    // Add any additional parameters
+    if (!empty($params)) {
+        $permalink .= '?' . http_build_query($params);
+    }
+
+    return $permalink;
+}
+
+/**
+ * Add or update query parameters to URL
+ */
+function addQueryParams(string $url, array $params): string
+{
+    $parsedUrl = parse_url($url);
+    $query = [];
+    
+    if (isset($parsedUrl['query'])) {
+        parse_str($parsedUrl['query'], $query);
+    }
+    
+    $query = array_merge($query, $params);
+    $updatedQuery = http_build_query($query);
+    
+    $scheme = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] . '://' : '';
+    $host = $parsedUrl['host'] ?? '';
+    $path = $parsedUrl['path'] ?? '';
+    
+    return $scheme . $host . $path . ($updatedQuery ? '?' . $updatedQuery : '');
+}
+
+/**
+ * Remove query parameters from URL
+ */
+function removeQueryParams(string $url, array $paramsToRemove): string
+{
+    $parsedUrl = parse_url($url);
+    $query = [];
+    
+    if (isset($parsedUrl['query'])) {
+        parse_str($parsedUrl['query'], $query);
+        foreach ($paramsToRemove as $param) {
+            unset($query[$param]);
+        }
+    }
+    
+    $updatedQuery = http_build_query($query);
+    
+    $scheme = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] . '://' : '';
+    $host = $parsedUrl['host'] ?? '';
+    $path = $parsedUrl['path'] ?? '';
+    
+    return $scheme . $host . $path . ($updatedQuery ? '?' . $updatedQuery : '');
+}
+
+/**
+ * Create a pagination URL
+ */
+function getPaginationUrl(int $page, string $baseUrl = ''): string
+{
+    return addQueryParams($baseUrl ?: getCurrentUrl(), ['page' => $page]);
+}
+
+/**
+ * Generate category URL
+ */
+function getCategoryUrl(string $category, string $baseUrl = ''): string
+{
+    if (empty($baseUrl)) {
+        $baseUrl = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    }
+    return rtrim($baseUrl, '/') . '/category/' . urlencode($category);
+}
+
+/**
+ * Check if current URL matches pattern
+ */
+function isCurrentUrl(string $pattern): bool
+{
+    return (bool) preg_match($pattern, getCurrentUrl());
+}
+
+/**
+ * Get clean path without query string
+ */
+function getCleanPath(string $url): string
+{
+    return strtok($url, '?');
+}
+
+/**
+ * Convert text to URL-friendly slug
+ */
+function slugify(string $text): string
+{
+    // Convert to lowercase
+    $text = strtolower($text);
+    
+    // Replace spaces and special characters with hyphens
+    $text = preg_replace('/[^\w]+/', '-', $text);
+    
+    // Trim hyphens from start and end
+    return trim($text, '-');
+}
+
+/**
+ * Generate a full URL for a given path
+ */
+function fullUrl(string $path, string $baseUrl = ''): string
+{
+    // Get base URL from config if not provided
+    if (empty($baseUrl)) {
+        $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    }
+
+    // Ensure base URL ends with a slash
+    $baseUrl = rtrim($baseUrl, '/') . '/';
+
+    // Return the full URL
+    return $baseUrl . ltrim($path, '/');
+}
+
+/**
+ * Generate a URL for a specific route
+ * Supports both path parameters (/:id) and query parameters
+ * @param string $name Route name
+ * @param array $params Path or query parameters. Path params are auto-detected from route pattern.
+ * @param string $baseUrl Base URL
+ * @return string
+ * 
+ * Example: route('blog.show', ['id' => 3]) -> /blog/3
+ *          route('blog.index', ['page' => 2]) -> /blog?page=2
+ */
+function route(string $name, array $params = [], string $baseUrl = ''): string
+{
+    // Get base URL from config if not provided
+    if (empty($baseUrl)) {
+        $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    }
+
+    // Ensure base URL ends with a slash
+    $baseUrl = rtrim($baseUrl, '/') . '/';
+
+    // Generate the route URL
+    $routePath = Swidly::path($name);
+
+    if (!$routePath) {
+        throw new \InvalidArgumentException("Route '$name' not found");
+    }
+
+    // Extract path parameters from route pattern (e.g., /blog/{id} or /blog/:id)
+    $pathParams = [];
+    $queryParams = $params;
+    
+    // Match placeholder patterns in the route ({id}, :id, {slug}, etc.)
+    preg_match_all('/\{([^}]+)\}|:([a-zA-Z_][a-zA-Z0-9_]*)/', $routePath, $matches);
+
+    if (!empty($matches[0])) {
+        // Determine which parameters are path parameters
+        foreach ($matches[1] as $index => $paramName) {
+            $placeholder = $matches[0][$index];
+            if (empty($paramName)) {
+                $paramName = $matches[2][$index];
+            }
+
+            if (isset($params[$paramName])) {
+                $pathParams[$placeholder] = $params[$paramName];
+                unset($queryParams[$paramName]);
+            }
+        }
+        
+        // Replace placeholders with actual parameter values
+        $routePath = strtr($routePath, $pathParams);
+    }
+
+    // Add remaining parameters as query string
+    if (!empty($queryParams)) {
+        $routePath .= '?' . http_build_query($queryParams);
+    }
+
+    return $baseUrl . ltrim($routePath, '/');
+}
+
+/**
+ * Generate a URL for a specific controller action
+ */
+function action(string $controller, string $action, array $params = [], string $baseUrl = ''): string
+{
+    // Get base URL from config if not provided
+    if (empty($baseUrl)) {
+        $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    }
+
+    // Ensure base URL ends with a slash
+    $baseUrl = rtrim($baseUrl, '/') . '/';
+
+    // Generate the action URL
+    $actionPath = Swidly::getActionPath($controller, $action);
+    if (!$actionPath) {
+        throw new \InvalidArgumentException("Action '$controller@$action' not found");
+    }
+
+    // Add parameters to the action path
+    if (!empty($params)) {
+        $actionPath .= '?' . http_build_query($params);
+    }
+
+    return $baseUrl . ltrim($actionPath, '/');
+}
+
+/**
+ * Parse links in a string and convert them to HTML links
+ * @param string $text Text containing URLs to parse
+ * @param array $attributes Optional HTML attributes for the links
+ * @return string Text with parsed links
+ */
+function parseLinks(string $text, array $attributes = []): string
+{
+    // URL pattern matching both http(s) and non-protocol URLs
+    $pattern = '~(?:(https?)://([^\s<]+)|(www\.[^\s<]+?\.[^\s<]+))(?<![\.,:])~i';
+    
+    // Build HTML attributes string
+    $attrs = '';
+    foreach ($attributes as $key => $value) {
+        $attrs .= ' ' . htmlspecialchars($key) . '="' . htmlspecialchars($value) . '"';
+    }
+
+    return preg_replace_callback($pattern, function($matches) use ($attrs) {
+        $url = $matches[0];
+        
+        // Add http:// if protocol is missing
+        if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
+            $url = "http://" . $url;
+        }
+        
+        return sprintf('<a href="%s"%s>%s</a>', 
+            htmlspecialchars($url),
+            $attrs,
+            htmlspecialchars($matches[0])
+        );
+    }, $text);
 }

@@ -260,18 +260,18 @@ Views are used to display information (normally HTML). View files go in the `Swi
 ```
 In the view, you can get the passed parameters like so:
 ```php
-{@include 'inc/header'}
+<x-inc.header />
 <h1>About me</h1>
 
 <p>Hello, my name is <strong>{first_name} {last_name}</strong></p>
 <p>I was born on <strong>{dob}</strong></p>
 <p>Here is a brief summary about me: <br/> {body}</p>
-{@include inc/footer}
+<x-inc.footer />
 ```
 
 Notice the `{}`. Whatever within the curly brackets will display the data with that name. Use the curly brackets also to display different languages. For example `{hello}` will display `hola` if the [Swidly/Core/lang/es.json](Swidly/Core/lang/es.json) has a config for "hello": "hola" and `'default_lang' => 'es'` is set in the `config.php` file
 
-Also use `{@include 'inc/header'}` to include other views within another view. This example will render the `header` in the about page
+Also use `<x-inc.header />` to include other views within another view as a component. This example will render the `header` component in the about page
 
 ## Models
 Models are used to get and store data in your application. They know nothing about how this data is to be presented in the views. Models extend the `Swidly\Core\Model` class and use [PDO](http://php.net/manual/en/book.pdo.php) to access the database. They're stored in the `Swidly/Models` folder. A sample post model class is included in [Swidly/Models/PostModel.php](Swidly/Models/PostModel.php). 
@@ -288,19 +288,6 @@ The Id column is require
 ```php
 #[Column()]
 public int $id;
-```
-
-There must be a getter/setter for that column in your model:
-```php
-public function getTitle(): string {
-    return $this->title;
-}
-
-public function setTitle(string $title): self {
-    $this->title = $title;
-
-    return $this;
-}
 ```
 
 You can then get data from the database in the controller like so:

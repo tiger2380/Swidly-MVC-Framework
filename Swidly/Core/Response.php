@@ -166,7 +166,7 @@ class Response
 		if(isset($this->data)){
 			$R->data = $this->data;
 		};
-		
+		dd($R);
 		// If set, include Request in response
 		if(defined('RESPOND_WITH_REQUEST') && RESPOND_WITH_REQUEST){	
 			 $R->_Request = $GLOBALS['Request'];

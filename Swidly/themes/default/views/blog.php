@@ -1,7 +1,7 @@
-<?php use Swidly\Core\Helpers\UrlHelper; ?>
-{@include 'inc/header'}
+
+<x-header />
 <?php foreach($blogs as $blog): ?>
-    <a href="<?= UrlHelper::getPermalink('blog/'.$blog->getSlug()) ?>"><?= $blog->getTitle() ?></a>
+    <a href="<?= route('blog-post', ['slug' => $blog->slug]) ?>"><?= $blog->title ?></a>
 <?php endforeach; ?>
 <hr/>
 <h3>Add New Post</h3>

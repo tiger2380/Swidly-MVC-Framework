@@ -101,7 +101,7 @@ class DB
                 $this->values[] = $value;
             }
         }
-        $this->queryParts['where'] = "WHERE " . implode(' AND ', $whereParts);
+        $this->queryParts['where'] = " WHERE " . implode(' AND ', $whereParts);
 
         return $this;
     }
@@ -110,6 +110,30 @@ class DB
     public function limit(int $limit, int $offset = 0): DB
     {
         $this->queryParts['limit'] = "LIMIT $offset, $limit";
+        return $this;
+    }
+
+    public function orderBy(string|array $columns, string $direction = 'ASC'): DB
+    {
+        $direction = strtoupper($direction);
+        if (!in_array($direction, ['ASC', 'DESC'])) {
+            throw new \InvalidArgumentException('Order direction must be ASC or DESC');
+        }
+
+        if (is_string($columns)) {
+            $this->queryParts['orderBy'] = "ORDER BY $columns $direction";
+        } else {
+            $orderParts = [];
+            foreach ($columns as $column => $dir) {
+                $dir = strtoupper($dir);
+                if (!in_array($dir, ['ASC', 'DESC'])) {
+                    throw new \InvalidArgumentException('Order direction must be ASC or DESC');
+                }
+                $orderParts[] = "$column $dir";
+            }
+            $this->queryParts['orderBy'] = "ORDER BY " . implode(', ', $orderParts);
+        }
+
         return $this;
     }
 
@@ -137,16 +161,22 @@ class DB
 
     public function printSQL() {
         $sql = $this->buildQuery();
-        dump($sql);
+        print_r($sql);
     }
 
     public function insert(array $data): bool
     {
-        $columns = implode(', ', array_keys($data));
-        $placeholders = implode(', ', array_fill(0, count($data), '?'));
-        $sql = "INSERT INTO {$this->queryParts['table']} ($columns) VALUES ($placeholders)";
-        $stmt = $this->conn->prepare($sql);
-        return $stmt->execute(array_values($data));
+        try {
+            $data = array_filter($data, fn($value) => !empty($value) && $value !== null);
+            $columns = implode(', ', array_keys($data));
+            $placeholders = implode(', ', array_fill(0, count($data), '?'));
+            $sql = "INSERT INTO {$this->queryParts['table']} ($columns) VALUES ($placeholders)";
+            $stmt = $this->conn->prepare($sql);
+            return $stmt->execute(array_values($data));
+        } catch (\PDOException $e) {
+            dd($e->getMessage());
+            throw new \RuntimeException('Insert failed: ' . $e->getMessage());
+        }
     }
 
     public function update(array $data): self
@@ -287,7 +317,7 @@ class DB
 
     private function buildQuery(): string
     {
-        $orderedParts = ['select', 'update', 'insert', 'delete', 'table', 'join', 'where', 'limit'];
+        $orderedParts = ['select', 'update', 'insert', 'delete', 'table', 'join', 'where', 'orderBy', 'limit'];
         $query = '';
         foreach ($orderedParts as $part) {
             if (!empty($this->queryParts[$part])) {

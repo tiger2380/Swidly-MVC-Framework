@@ -13,4 +13,6 @@ enum Types: string {
     case TEXT = 'text';
     case DECIMAL = 'decimal';
     case TIMESTAMP = 'timestamp';
+    case LONGTEXT = 'longtext';
+    case BOOLEAN = 'boolean';
 }

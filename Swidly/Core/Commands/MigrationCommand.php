@@ -45,54 +45,74 @@ STR;
         $args = $this->options['args'] ?? [];
         $filename = $args[1] ?? '';
 
-        switch($name) {
-            case 'create':
-                $this->createMigrationFromModels($theme, $filename);
-                break;
-            case 'migrate':
-                $this->migrate($theme, $options, $filename);
-                break;
-            case 'rollback':
-                $this->rollback($theme, $options);
-                break;
-            case 'execute':
-                $this->executeMigration($theme, $options, $filename);
-                break;
-            case 'status':
-                $changes = $this->checkSchemaUpdates();
-                $this->displayMigrationStatus($changes);
-                break;
-            case 'check':
-                $changes = $this->checkSchemaUpdates();
-                if (empty($changes)) {
-                    formatPrintLn(['green'], "Database schema is up to date");
-                } else {
-                    formatPrintLn(['yellow'], "Database updates needed:");
-                    foreach ($changes as $table => $diff) {
-                        formatPrintLn(['cyan'], "\nTable: $table");
-                        if (!empty($diff['new'])) {
-                            formatPrintLn(['green'], "New columns: " . implode(', ', array_keys($diff['new'])));
-                        }
-                        if (!empty($diff['modified'])) {
-                            formatPrintLn(['yellow'], "Modified columns: " . implode(', ', array_keys($diff['modified'])));
-                        }
-                        if (!empty($diff['removed'])) {
-                            formatPrintLn(['red'], "Removed columns: " . implode(', ', $diff['removed']));
+        try {
+            switch($name) {
+                case 'create':
+                    $this->createMigrationFromModels($theme, $filename);
+                    break;
+                case 'migrate':
+                    $this->migrate($theme, $options, $filename);
+                    break;
+                case 'rollback':
+                    $this->rollback($theme, $options);
+                    break;
+                case 'execute':
+                    if (empty($filename)) {
+                        throw new \InvalidArgumentException("Migration version is required for execute command");
+                    }
+                    $this->executeMigration($theme, $options, $filename);
+                    break;
+                case 'status':
+                    $changes = $this->checkSchemaUpdates();
+                    $this->displayMigrationStatus($changes);
+                    break;
+                case 'check':
+                    $changes = $this->checkSchemaUpdates();
+                    if (empty($changes)) {
+                        formatPrintLn(['green'], "✓ Database schema is up to date");
+                    } else {
+                        formatPrintLn(['yellow'], "! Database updates needed:");
+                        foreach ($changes as $table => $diff) {
+                            formatPrintLn(['cyan'], "\n  Table: $table");
+                            if (!empty($diff['new'])) {
+                                formatPrintLn(['green'], "    + New columns: " . implode(', ', array_keys($diff['new'])));
+                            }
+                            if (!empty($diff['modified'])) {
+                                formatPrintLn(['yellow'], "    ~ Modified columns: " . implode(', ', array_keys($diff['modified'])));
+                            }
+                            if (!empty($diff['removed'])) {
+                                formatPrintLn(['red'], "    - Removed columns: " . implode(', ', $diff['removed']));
+                            }
                         }
                     }
-                }
-                break;
-            default:
-                throw new \InvalidArgumentException("Unknown migration command: $name");
-        }
+                    break;
+                default:
+                    throw new \InvalidArgumentException("Unknown migration command: $name. Valid commands: create, migrate, rollback, execute, status, check");
+            }
 
-        if (isset($options['u']) && $options['u']) {
-            $migrations = SWIDLY_ROOT . '/Migrations';
-            print_r($migrations);
-        }
+            if (isset($options['u']) && $options['u']) {
+                $migrations = SWIDLY_ROOT . '/Migrations';
+                print_r($migrations);
+            }
 
-        if (isset($this->options['verbose']) && $this->options['verbose']) {
-            
+            if (isset($this->options['verbose']) && $this->options['verbose']) {
+                formatPrintLn(['blue'], "Command executed: $name");
+            }
+        } catch (\InvalidArgumentException $e) {
+            formatPrintLn(['red'], "✗ Invalid argument: " . $e->getMessage());
+            exit(1);
+        } catch (\RuntimeException $e) {
+            formatPrintLn(['red'], "✗ Runtime error: " . $e->getMessage());
+            if (isset($this->options['verbose']) && $this->options['verbose']) {
+                formatPrintLn(['red'], $e->getTraceAsString());
+            }
+            exit(1);
+        } catch (\Exception $e) {
+            formatPrintLn(['red'], "✗ Unexpected error: " . $e->getMessage());
+            if (isset($this->options['verbose']) && $this->options['verbose']) {
+                formatPrintLn(['red'], $e->getTraceAsString());
+            }
+            exit(1);
         }
     }
 
@@ -226,84 +246,193 @@ STR;
 
     public function createMigration($upSql = [], $downSql = []): string
     {
+        if (empty($upSql)) {
+            throw new \InvalidArgumentException("Cannot create migration with no SQL statements");
+        }
+
         $result = $this->makeMigrationFile($upSql, $downSql);
         $migrationFile = $this->makeMigrationFileName();
 
-        file_put_contents($migrationFile, $result);
+        // Ensure migrations directory exists
+        $migrationDir = dirname($migrationFile);
+        if (!is_dir($migrationDir)) {
+            if (!mkdir($migrationDir, 0755, true)) {
+                throw new \RuntimeException("Failed to create migrations directory: $migrationDir");
+            }
+        }
+
+        // Check if file already exists
+        if (file_exists($migrationFile)) {
+            throw new \RuntimeException("Migration file already exists: $migrationFile");
+        }
+
+        $bytesWritten = file_put_contents($migrationFile, $result);
+        if ($bytesWritten === false) {
+            throw new \RuntimeException("Failed to write migration file: $migrationFile");
+        }
+
+        // Verify the file was written correctly
+        if (!file_exists($migrationFile) || !is_readable($migrationFile)) {
+            throw new \RuntimeException("Migration file created but is not readable: $migrationFile");
+        }
 
         return $migrationFile;
     }
 
     public function executeMigration($theme, $options, $version): void
     {
-        // Implementation for executing a specific migration
+        // Validate version format
+        if (!preg_match('/^Version[0-9]{12}$/', $version)) {
+            throw new \InvalidArgumentException("Invalid migration version format: $version (expected format: Version + 12 digits)");
+        }
+
         $migrationFile = SWIDLY_ROOT . 'Migrations/' . $version . '.php';
+        
         if (!file_exists($migrationFile)) {
             throw new \RuntimeException("Migration file not found: $migrationFile");
         }
-        include_once $migrationFile;
+
+        if (!is_readable($migrationFile)) {
+            throw new \RuntimeException("Migration file is not readable: $migrationFile");
+        }
+
+        try {
+            include_once $migrationFile;
+        } catch (\Exception $e) {
+            throw new \RuntimeException("Failed to include migration file: " . $e->getMessage());
+        }
+
         $migrationClass = 'Swidly\\Migrations\\' . $version;
+        
         if (!class_exists($migrationClass)) {
             throw new \RuntimeException("Migration class not found: $migrationClass");
         }
 
         $migration = new $migrationClass();
 
-        if (isset($options['u'])) {
-            if (!method_exists($migration, 'up')) {
-                throw new \RuntimeException("Migration class does not have an 'up' method: $migrationClass");
-            }
-
-            $migration->up();
-        } else {
-            if (!method_exists($migration, 'down')) {
-                throw new \RuntimeException("Migration class does not have a 'down' method: $migrationClass");
-            }
-
-            $migration->down();
+        $direction = isset($options['u']) ? 'up' : 'down';
+        
+        if (!method_exists($migration, $direction)) {
+            throw new \RuntimeException("Migration class does not have a '$direction' method: $migrationClass");
         }
-        // Optionally, you can log the migration execution
+
+        formatPrintLn(['cyan'], "Executing migration $direction: $version");
+        
+        try {
+            $migration->$direction();
+            formatPrintLn(['green'], "✓ Migration $direction executed successfully");
+        } catch (\PDOException $e) {
+            formatPrintLn(['red'], "✗ Database error during migration: " . $e->getMessage());
+            throw new \RuntimeException("Migration $direction failed: " . $e->getMessage(), 0, $e);
+        } catch (\Exception $e) {
+            formatPrintLn(['red'], "✗ Migration $direction failed: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     private function makeMigrationFileName($name = ''): string
     {
         $date = date('mdYhi');
+        
         if (isset($name) && !empty($name)) {
+            // Validate custom name format
+            if (!preg_match('/^[0-9]{10}$/', $name)) {
+                throw new \InvalidArgumentException("Invalid migration name format: $name (expected 10 digits)");
+            }
             $date = $name;
         }
+
+        if (!defined('SWIDLY_ROOT')) {
+            throw new \RuntimeException("SWIDLY_ROOT constant is not defined");
+        }
+        
         return SWIDLY_ROOT . 'Migrations/Version' . $date . '.php';
     }
 
     private function makeMigrationFile($upSqls = [], $downSqls = []): string
     {
+        if (!is_array($upSqls)) {
+            throw new \InvalidArgumentException("upSqls must be an array");
+        }
+        
+        if (!is_array($downSqls)) {
+            throw new \InvalidArgumentException("downSqls must be an array");
+        }
+
         $date = date('mdYhi');
         $migration = sprintf(self::MIGRATION_TEMPLATE, $date);
-        $result = preg_replace('/({up})/', implode(' ', $upSqls), $migration);
-        $result = preg_replace('/({down})/', implode(' ', $downSqls), $result);
+        
+        // Format SQL statements with proper indentation
+        $upSqlFormatted = empty($upSqls) ? '// No up SQL' : "\n            " . implode("\n            ", $upSqls);
+        $downSqlFormatted = empty($downSqls) ? '// No down SQL' : "\n            " . implode("\n            ", $downSqls);
+        
+        $result = str_replace('{up}', $upSqlFormatted, $migration);
+        $result = str_replace('{down}', $downSqlFormatted, $result);
+        
         return $result;
     }
 
     private function getEntities(string $filename = null): array
     {
         $theme = $this->options['theme'] ?? [];
+        
+        if (empty($theme) || !isset($theme['base']) || !isset($theme['name'])) {
+            throw new \RuntimeException("Theme configuration is missing or incomplete");
+        }
+
+        $modelsPath = $theme['base'] . '/models';
+        
+        if (!is_dir($modelsPath)) {
+            throw new \RuntimeException("Models directory not found: $modelsPath");
+        }
+
+        if (!is_readable($modelsPath)) {
+            throw new \RuntimeException("Models directory is not readable: $modelsPath");
+        }
+
         $entities = [];
+        
         if (isset($filename) && !empty($filename)) {
+            // Remove .php extension if provided
+            $filename = preg_replace('/\.php$/', '', $filename);
             $modelFilenames = [$filename];
         } else {
-            $models = array_diff(scandir($theme['base'].'/models', ), array('.', '..'));
+            $files = scandir($modelsPath);
+            if ($files === false) {
+                throw new \RuntimeException("Failed to read models directory: $modelsPath");
+            }
+            
+            $models = array_diff($files, ['.', '..', '.gitkeep']);
             $modelFilenames = array_map(fn($model) => pathinfo($model)['filename'], $models);
         }
 
         foreach ($modelFilenames as $model) {
             $className = "Swidly\\themes\\{$theme['name']}\\models\\$model";
          
-            if(class_exists($className)) {
-                $instance = new $className();
-
-                array_push($entities, new \ReflectionClass(get_class($instance)));
-            } else {
-                echo 'Class does not exist:1 '.$className;
+            if (!class_exists($className)) {
+                formatPrintLn(['yellow'], "⚠ Skipping non-existent class: $className");
+                continue;
             }
+
+            try {
+                $instance = new $className();
+                $reflection = new \ReflectionClass(get_class($instance));
+                
+                // Verify class has Table attribute
+                if (empty($reflection->getAttributes(Table::class))) {
+                    formatPrintLn(['yellow'], "⚠ Skipping class without Table attribute: $className");
+                    continue;
+                }
+                
+                $entities[] = $reflection;
+            } catch (\Exception $e) {
+                formatPrintLn(['red'], "✗ Error processing class $className: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        if (empty($entities)) {
+            throw new \RuntimeException("No valid entity models found in $modelsPath");
         }
     
         return $entities;
@@ -366,23 +495,50 @@ STR;
 
     private function getCurrentTableSchema(string $tableName): array
     {
+        if (empty($tableName)) {
+            throw new \InvalidArgumentException("Table name cannot be empty");
+        }
+
+        // Validate table name to prevent SQL injection
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $tableName)) {
+            throw new \InvalidArgumentException("Invalid table name: $tableName");
+        }
+
         $schema = [];
-        $sql = "SHOW COLUMNS FROM {$tableName}";
+        $sql = "SHOW COLUMNS FROM `{$tableName}`";
         
         try {
-            $columns = DB::query($sql)->fetchAll(\PDO::FETCH_ASSOC);
+            $result = DB::query($sql);
+            if (!$result) {
+                return [];
+            }
+            
+            $columns = $result->fetchAll(\PDO::FETCH_ASSOC);
+            
+            if (empty($columns)) {
+                return [];
+            }
+            
             foreach ($columns as $column) {
+                if (!isset($column['Field'])) {
+                    continue;
+                }
+                
                 $schema[$column['Field']] = [
-                    'type' => $column['Type'],
-                    'null' => $column['Null'] === 'YES',
-                    'key' => $column['Key'],
-                    'default' => $column['Default'],
-                    'extra' => $column['Extra']
+                    'type' => $column['Type'] ?? '',
+                    'null' => ($column['Null'] ?? 'NO') === 'YES',
+                    'key' => $column['Key'] ?? '',
+                    'default' => $column['Default'] ?? null,
+                    'extra' => $column['Extra'] ?? ''
                 ];
             }
         } catch (\PDOException $e) {
-            // Table doesn't exist
-            return [];
+            // Table doesn't exist or other database error
+            if (strpos($e->getMessage(), "doesn't exist") !== false) {
+                return [];
+            }
+            // Re-throw other database errors
+            throw new \RuntimeException("Database error while fetching schema for table '$tableName': " . $e->getMessage(), 0, $e);
         }
         
         return $schema;
@@ -473,13 +629,48 @@ STR;
         $sqlBuilder = new SqlBuilder($tableName);
         $props = $entity->getProperties();
 
-        foreach ($props as $prop) {
-            if ($attributes = $prop->getAttributes(Column::class)) {
-                $sqlBuilder->addColumn($prop, $attributes[0]->newInstance());
+        // Get current schema
+        $currentSchema = $this->getCurrentTableSchema($tableName);
+        $modelSchema = $this->getModelSchema($entity);
+        $schemaDiff = $this->compareSchemas($currentSchema, $modelSchema);
+
+        // If table doesn't exist, create it
+        if (empty($currentSchema)) {
+            foreach ($props as $prop) {
+                if ($attributes = $prop->getAttributes(Column::class)) {
+                    $sqlBuilder->addColumn($prop, $attributes[0]->newInstance());
+                }
+            }
+            $addUpSqls[] = $sqlBuilder->getCreateTableSql();
+            $addDownSqls[] = $sqlBuilder->getDropTableSql();
+            return;
+        }
+
+        // Table exists, process alterations
+        if (!empty($schemaDiff['new'])) {
+            foreach ($schemaDiff['new'] as $columnName => $columnDef) {
+                $addUpSqls[] = $sqlBuilder->getAddColumnSql($columnName, $columnDef);
+                $addDownSqls[] = $sqlBuilder->getDropColumnSql($columnName);
             }
         }
 
-        $addUpSqls[] = $sqlBuilder->getCreateTableSql();
-        $addDownSqls[] = $sqlBuilder->getDropTableSql();
+        if (!empty($schemaDiff['modified'])) {
+            foreach ($schemaDiff['modified'] as $columnName => $changes) {
+                $addUpSqls[] = $sqlBuilder->getModifyColumnSql($columnName, $changes['to']);
+                $addDownSqls[] = $sqlBuilder->getModifyColumnSql($columnName, $changes['from']);
+            }
+        }
+
+        if (!empty($schemaDiff['removed'])) {
+            foreach ($schemaDiff['removed'] as $columnName) {
+                // Get the original column definition from current schema for down migration
+                $originalDef = $currentSchema[$columnName];
+                $addUpSqls[] = $sqlBuilder->getDropColumnSql($columnName);
+                
+                // For down migration, we need to recreate the column
+                $addDownSqls[] = '$this->addSql(\'ALTER TABLE ' . $tableName . ' ADD COLUMN ' . $columnName . ' ' 
+                    . $originalDef['type'] . ($originalDef['null'] ? ' NULL' : ' NOT NULL') . "');\n";
+            }
+        }
     }
 }

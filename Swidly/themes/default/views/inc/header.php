@@ -1,7 +1,4 @@
 
-<?php
-use \Swidly\Core\Helpers\UrlHelper;
-?>
 <!DOCTYPE html>
 <html data-bs-theme="light" lang="en">
 
@@ -23,16 +20,16 @@ use \Swidly\Core\Helpers\UrlHelper;
             <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('home') ?>" href="<?= UrlHelper::getPermalink('/') ?>">Home</a>
+                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('home') ?>" href="{{ route('home') }}">Home</a>
                 </li>
                 <li class="nav-item">
-                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('about') ?>" href="<?= UrlHelper::getPermalink('about') ?>">About</a>
+                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('about') ?>" href="{{ route('about') }}">About</a>
                 </li>
                 <li class="nav-item">
-                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('blog') ?>" href="<?= UrlHelper::getPermalink('blog') ?>">Blog</a>
+                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('blog') ?>" href="{{ route('blog-index') }}">Blog</a>
                 </li>
                 <li class="nav-item">
-                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('contact') ?>" href="<?= UrlHelper::getPermalink('contact') ?>">Contact</a>
+                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('contact') ?>" href="{{ route('contact') }}">Contact</a>
                 </li>
             </ul>
             </div>

@@ -28,11 +28,18 @@ class ComponentAttributes
      *
      * @param  string  $key
      * @param  mixed  $default
-     * @return mixed
+     * @param  bool  $asWrapper
+     * @return mixed|Attribute
      */
-    public function get(string $key, mixed $default = null): mixed
+    public function get(string $key, mixed $default = null, bool $asWrapper = false): mixed
     {
-        return $this->attributes[$key] ?? $default;
+        $value = $this->attributes[$key] ?? $default;
+        
+        if ($asWrapper && $value !== null) {
+            return new Attribute($key, (string) $value, $this);
+        }
+        
+        return $value;
     }
 
     /**
@@ -133,6 +140,29 @@ class ComponentAttributes
     public function merge(array $attributes): static
     {
         $this->attributes = array_merge($this->attributes, $attributes);
+
+        return $this;
+    }
+
+    /**
+     * Merge a value into a specific attribute.
+     *
+     * @param  string  $attribute
+     * @param  string  $value
+     * @param  string  $separator
+     * @return static
+     */
+    public function mergeAttribute(string $attribute, string $value, string $separator = ' '): static
+    {
+        $existing = $this->get($attribute, '');
+        
+        // Combine existing and new values
+        $combined = trim($existing . $separator . $value);
+        
+        // Remove duplicate values while preserving order (split by separator)
+        $valueArray = array_unique(array_filter(explode($separator, $combined)));
+        
+        $this->set($attribute, implode($separator, $valueArray));
 
         return $this;
     }

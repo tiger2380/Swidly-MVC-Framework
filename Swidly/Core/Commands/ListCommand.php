@@ -18,6 +18,7 @@ class ListCommand extends AbstractCommand
 
         match ($name) {
             'routes' => $this->listRoutes(),
+            'components' => $this->listComponents(),
             default => throw new \InvalidArgumentException("Unknown command: $name"),
         };
     }
@@ -40,6 +41,63 @@ class ListCommand extends AbstractCommand
             formatPrintLn(['green'], "-------------------------");
         }
     }
+
+    private function listComponents(): void 
+    {
+        $theme = $this->options['theme'] ?? [];
+        $themeName = $theme['name'] ?? 'localgem';
+        $themesDir = dirname(__DIR__, 2) . '/themes';
+        
+        formatPrintLn(['green', 'bold'], "Available Components:");
+        formatPrintLn(['white'], "");
+
+        // Get list of themes
+        $themes = [];
+        if (is_dir($themesDir)) {
+            $themes = array_filter(scandir($themesDir), function($item) use ($themesDir) {
+                return $item !== '.' && $item !== '..' && is_dir($themesDir . '/' . $item);
+            });
+        }
+
+        if (empty($themes)) {
+            formatPrintLn(['red'], "No themes found.");
+            return;
+        }
+
+        $totalComponents = 0;
+        foreach ($themes as $themeDir) {
+            $componentsDir = $themesDir . '/' . $themeDir . '/components';
+            
+            if (!is_dir($componentsDir)) {
+                continue;
+            }
+
+            $components = array_filter(scandir($componentsDir), function($item) use ($componentsDir) {
+                return $item !== '.' && $item !== '..' && pathinfo($item, PATHINFO_EXTENSION) === 'php';
+            });
+
+            if (!empty($components)) {
+                formatPrintLn(['yellow', 'bold'], "Theme: $themeDir");
+                foreach ($components as $component) {
+                    $componentName = pathinfo($component, PATHINFO_FILENAME);
+                    // Convert PascalCase to kebab-case for usage hint
+                    $alias = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $componentName));
+                    
+                    formatPrintLn(['cyan'], "  - $componentName");
+                    formatPrintLn(['white'], "    Usage: <x-{$alias}>content</x-{$alias}>");
+                    $totalComponents++;
+                }
+                formatPrintLn(['white'], "");
+            }
+        }
+
+        if ($totalComponents === 0) {
+            formatPrintLn(['red'], "No components found.");
+        } else {
+            formatPrintLn(['green', 'bold'], "Total components: $totalComponents");
+        }
+    }
+
     public function getOptions(): array 
     {
         return $this->options;

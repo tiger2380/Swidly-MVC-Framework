@@ -28,6 +28,9 @@ class MakeCommand extends AbstractCommand
             case 'migration':
                 $command = CommandFactory::create('migration', $this->options);
                 break;
+            case 'component':
+                $command = CommandFactory::create('component', $this->options);
+                break;
             default:
                 throw new \InvalidArgumentException("Unknown action: $action");
         }
@@ -52,25 +55,25 @@ class MakeCommand extends AbstractCommand
     }
     public function getCommandDescription(): string 
     {
-        return 'Create a new model, controller, or migration';
+        return 'Create a new model, controller, migration, or component';
     }
     public function getCommandUsage(): string 
     {
-        return 'make --name <name> --type <model|controller|migration>';
+        return 'make --name <name> --type <model|controller|migration|component>';
     }
     public function getCommandOptions(): array 
     {
         return [
-            'name' => 'The name of the model, controller, or migration',
-            'type' => 'The type of command to execute (model, controller, migration)',
+            'name' => 'The name of the model, controller, migration, or component',
+            'type' => 'The type of command to execute (model, controller, migration, component)',
             'theme' => 'The theme to use for the command'
         ];
     }
     public function getCommandArguments(): array 
     {
         return [
-            'name' => 'The name of the model, controller, or migration to create',
-            'type' => 'The type of command to execute (model, controller, migration)'
+            'name' => 'The name of the model, controller, migration, or component to create',
+            'type' => 'The type of command to execute (model, controller, migration, component)'
         ];
     }
     public function getCommandAliases(): array 
@@ -103,7 +106,8 @@ class MakeCommand extends AbstractCommand
             'Swidly\Core\Factory\CommandFactory',
             'Swidly\Core\Commands\ModelCommand',
             'Swidly\Core\Commands\ControllerCommand',
-            'Swidly\Core\Commands\MigrationCommand'
+            'Swidly\Core\Commands\MigrationCommand',
+            'Swidly\Core\Commands\ComponentCommand'
         ];
     }
 }

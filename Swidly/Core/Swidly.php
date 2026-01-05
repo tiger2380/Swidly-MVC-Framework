@@ -42,7 +42,9 @@ class Swidly {
     )
     {
         $theme = self::theme();
-        define('ROOT_URL', self::getConfig('app::base_url') . '/Swidly/themes/' . $theme['name']);
+        !defined('ROOT_URL') && define('ROOT_URL', self::getConfig('app::base_url') . '/Swidly/themes/' . $theme['name']);
+        !defined('WEB_URL') && define('WEB_URL', self::getConfig('app::base_url'));
+
     }
 
     /**
@@ -223,14 +225,24 @@ class Swidly {
         }
 
         if (isset($routeName)) {
+            $groupPrefix = trim($groupPrefix, '/');
+
             if (is_array($paths)) {
                 foreach($paths as $path) {
-                    $this->next = $path;
-                    $this->name($routeName);
+                    $this->next = $groupPrefix.$path;
+                    if(isset($groupPrefix) && !empty($groupPrefix)) {
+                        $this->name($groupPrefix.'-'.$routeName);
+                    } else {
+                        $this->name($routeName);
+                    }
                 }
             } else {
-                $this->next = $paths;
-                $this->name($routeName);
+                $this->next = $groupPrefix.$paths;
+                if(isset($groupPrefix) && !empty($groupPrefix)) {
+                    $this->name($groupPrefix.'-'.$routeName);
+                } else {
+                    $this->name($routeName);
+                }
             }
         }
     }
@@ -277,7 +289,7 @@ class Swidly {
 
                 try {
                     $this->addRoute($methods, $path, $className.'::'.$method->getName(), $name, $groupPrefix);
-                    $this->registerMiddlewares($method, $path);
+                    $this->registerMiddlewares($method, $path, $groupPrefix);
                 } catch (\Exception $e) {
                     // Handle the exception appropriately
                     continue;
@@ -291,7 +303,7 @@ class Swidly {
      * @param array|string $paths
      * @return void
      */
-    public function registerMiddlewares(ReflectionMethod $method, array|string $paths): void
+    public function registerMiddlewares(ReflectionMethod $method, array|string $paths, string $groupPrefix = ''): void
     {
         if (!$method instanceof ReflectionMethod) {
             throw new \InvalidArgumentException('The $method parameter must be a ReflectionMethod object.');
@@ -322,11 +334,11 @@ class Swidly {
                 try {
                     if (is_array($paths)) {
                         foreach ($paths as $path) {
-                            $this->next = $path;
+                            $this->next = $groupPrefix.$path;
                             $this->registerMiddleware($callback);
                         }
                     } else {
-                        $this->next = $paths;
+                        $this->next = $groupPrefix.$paths;
                         $this->registerMiddleware($callback);
                     }
                 } catch (\Exception $e) {
@@ -375,20 +387,26 @@ class Swidly {
     }
 
     public function run($doRunCommand = true): void {
-        if (self::getConfig('app::debug', false)) {
-            $this->enableErrorHandling();
-        }
+        try {
+            if (self::isDebugMode()) {
+                $this->enableErrorHandling();
+            }
 
-        $routesFile = SWIDLY_ROOT . '/routes.php';
-        if (!file_exists($routesFile) || !is_readable($routesFile)) {
-            throw new \RuntimeException('Routes file does not exist or is not readable.');
-        }
-        require_once $routesFile;
+            $routesFile = SWIDLY_ROOT . '/routes.php';
+            if (!file_exists($routesFile) || !is_readable($routesFile)) {
+                throw new \RuntimeException('Routes file does not exist or is not readable.');
+            }
+            require_once $routesFile;
 
-        $this->loadControllerRoutes();
+            $this->loadControllerRoutes();
 
-        if ($doRunCommand) {
-            $this->router->run();
+            if ($doRunCommand) {
+                $this->router->run();
+            }
+        } catch (\Swidly\Core\SwidlyException $e) {
+            $this->handleException($e);
+        } catch (\Throwable $e) {
+            $this->handleException($e);
         }
     }
 
@@ -457,19 +475,13 @@ class Swidly {
      * @return string
      */
     static function path(string $name, array $params = []) : string {
-        global $base_url;
-        $add_params = '';
-        if(count($params) > 0) {
-            $add_params = '/'.rtrim(join('/', $params), '/');
-        }
-
         if(array_key_exists($name, Swidly::$routeNames)) {
-            $route = preg_replace('/\??:\w+/', '', Swidly::$routeNames[$name]);
+            $route = Swidly::$routeNames[$name];
 
             if(strlen($route) > 1) {
                 $route = rtrim($route, '/');
             }
-            return Swidly::getConfig('url') . $route . $add_params;
+            return Swidly::getConfig('url') . $route;
         } else {
             return '';
         }
@@ -520,6 +532,126 @@ class Swidly {
         error_reporting(E_ALL);
         set_error_handler([$this, 'errorHandler']);
         set_exception_handler([$this, 'exceptionHandler']);
+    }
+
+    /**
+     * Check if debug mode is enabled
+     */
+    public static function isDebugMode(): bool {
+        return self::getConfig('app::debug', false) || self::getConfig('DEVELOPMENT_ENVIRONMENT', false);
+    }
+
+    /**
+     * Custom error handler
+     */
+    public function errorHandler($errno, $errstr, $errfile, $errline): bool {
+        if (!(error_reporting() & $errno)) {
+            return false;
+        }
+
+        $this->renderErrorPage(500, [
+            'errorMessage' => $errstr,
+            'errorFile' => $errfile,
+            'errorLine' => $errline,
+            'debugMode' => self::isDebugMode()
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Custom exception handler
+     */
+    public function exceptionHandler(\Throwable $e): void {
+        $this->handleException($e);
+    }
+
+    /**
+     * Handle exceptions and display custom error pages
+     */
+    private function handleException(\Throwable $e): void {
+        // Log the error
+        if (self::isDebugMode()) {
+            error_log('Exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        }
+
+        // Determine HTTP status code
+        $statusCode = 500;
+        if ($e instanceof SwidlyException) {
+            $statusCode = $e->getStatusCode();
+        } elseif (method_exists($e, 'getCode')) {
+            $statusCode = $e->getCode();
+        }
+
+        // Render appropriate error page
+        $this->renderErrorPage($statusCode, [
+            'errorMessage' => $e->getMessage(),
+            'errorFile' => $e->getFile(),
+            'errorLine' => $e->getLine(),
+            'errorTrace' => $e->getTraceAsString(),
+            'debugMode' => self::isDebugMode()
+        ]);
+    }
+
+    /**
+     * Render custom error page
+     */
+    private function renderErrorPage(int $statusCode, array $data = []): void {
+        http_response_code($statusCode);
+
+        // Add home URL to data
+        $data['homeUrl'] = self::getConfig('url', '/');
+
+        // Try to render theme-specific error page
+        try {
+            $theme = self::theme();
+            $errorView = $theme['base'] . '/views/errors/' . $statusCode . '.php';
+
+            if (file_exists($errorView)) {
+                extract($data);
+                require $errorView;
+                exit;
+            }
+        } catch (\Throwable $e) {
+            // If theme rendering fails, continue to fallback
+        }
+
+        // Fallback to generic error page
+        $this->renderFallbackError($statusCode, $data);
+        exit;
+    }
+
+    /**
+     * Render a simple fallback error page
+     */
+    private function renderFallbackError(int $statusCode, array $data): void {
+        $messages = [
+            403 => 'Access Denied',
+            404 => 'Page Not Found',
+            500 => 'Internal Server Error'
+        ];
+
+        $message = $messages[$statusCode] ?? 'An Error Occurred';
+        
+        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' . $statusCode . ' - ' . $message . '</title>';
+        echo '<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f5f5f5;}';
+        echo 'h1{font-size:72px;margin:0;color:#333;}p{font-size:18px;color:#666;}</style></head><body>';
+        echo '<h1>' . $statusCode . '</h1><p>' . $message . '</p>';
+        
+        if (!empty($data['debugMode']) && !empty($data['errorMessage'])) {
+            echo '<div style="background:#fff;padding:20px;margin:20px auto;max-width:800px;text-align:left;border:1px solid #ddd;">';
+            echo '<strong>Error:</strong> ' . htmlspecialchars($data['errorMessage']);
+            if (!empty($data['errorFile'])) {
+                echo '<br><strong>File:</strong> ' . htmlspecialchars($data['errorFile']);
+            }
+            if (!empty($data['errorLine'])) {
+                echo '<br><strong>Line:</strong> ' . htmlspecialchars($data['errorLine']);
+            }
+            echo '</div>';
+        }
+        
+        echo '<p><a href="' . htmlspecialchars($data['homeUrl'] ?? '/') . '">← Back to Home</a></p>';
+        echo '</body></html>';
     }
 
     /**
@@ -682,6 +814,7 @@ class Swidly {
 
     static function render($path, $data = []): void{
         $view = new View();
+        $view->registerCommonComponents();
         echo $view->render($path, $data);
     }
 }

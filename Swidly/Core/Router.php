@@ -18,7 +18,8 @@ class Router
 
     public function __construct(
         private Request $request = new Request, 
-        private Response $response = new Response
+        private Response $response = new Response,
+        private View $view = new View()
     ) {
     }
 
@@ -370,19 +371,23 @@ class Router
             Response::setStatusCode($ex->getCode());
             $view = new View();
             $view->registerCommonComponents();
-            $view->render('404', ['message' => $ex->getMessage(), 'code' => $ex->getStatusCode()]);
+            $view->render('errors.' . $ex->getStatusCode(), [
+                'message' => $ex->getMessage(), 
+                'code' => $ex->getStatusCode(),
+                'homeUrl' => Swidly::getConfig('url', '/')
+            ]);
         }
     }
 
     private function handleError(string $message, int $code): void
     {
         Response::setStatusCode($code);
-        $view = new View();
-        $view->registerCommonComponents();
+        $this->view->registerCommonComponents();
 
-        $view->render('404', [
+        echo $this->view->render('errors.' . $code, [
             'message' => $message,
-            'code' => $code
+            'code' => $code,
+            'homeUrl' => Swidly::getConfig('url', '/')
         ]);
     }
 }

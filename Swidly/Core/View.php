@@ -31,12 +31,29 @@ class View
     protected array $data = [];
 
     /**
+     * The sections data.
+     *
+     * @var array
+     */
+    protected array $sections = [];
+
+    /**
+     * The current section being captured.
+     *
+     * @var string|null
+     */
+    protected ?string $currentSection = null;
+
+    /**
      * Create a new view instance.
      */
     public function __construct()
     {
         $this->compiler = new ComponentCompiler();
         $this->safeIncludePaths = [Swidly::theme()['base'] . '/views/'];
+        
+        // Make view instance globally accessible
+        $GLOBALS['__view'] = $this;
     }
 
     /**
@@ -78,27 +95,100 @@ class View
     {
         $this->with($data);
 
-        $viewPath = $this->findView($view);
+        $viewPath = $this->findView($view); 
+      
         if (!$viewPath) {
             throw new SwidlyException("View [{$view}] not found.");
         }
-
+      
         // Extract data to make it available in the view
         extract($this->data);
 
-        // Start output buffering
         ob_start();
-
-        // Include the view file
-        include $viewPath;
-
-        // Get the contents and clean the buffer
+        require $viewPath;
         $contents = ob_get_clean();
+
+        if ($contents === false) {
+            $contents = '';
+        }
 
         // Compile components
         $components = $this->compiler->compile($contents);
-        return $this->parseIncludes($this->parse($this->layout($components)));
+        $parsed = $this->parseIncludes($components);
+        $evaluated = $this->evaluatePhpExpressions($parsed);
+        $finalContent = $this->layout($evaluated);
+        return $finalContent;
+    }
 
+    /**
+     * Parse PHP expressions in template syntax.
+     * Converts {{ expression }} to <?= expression; ?>
+     * Converts {!! expression !!} to <?= expression; ?> (unescaped)
+     * Converts {{-- comment --}} to PHP comments
+     *
+     * @param  string  $content
+     * @return string
+     */
+    protected function parsePhpExpressions(string $content): string
+    {
+        // Remove template comments {{-- comment --}}
+        $content = preg_replace('/\{\{--.*?--\}\}/s', '', $content);
+
+        // Replace yield() calls with yieldSection() since yield is a reserved keyword
+        $content = preg_replace_callback(
+            '/\byield\s*\(/i',
+            function ($matches) {
+                return 'yieldSection(';
+            },
+            $content
+        );
+
+        // Parse unescaped expressions {!! expression !!} (raw output, no escaping)
+        $content = preg_replace_callback(
+            '/\{!!\s*(.+?)\s*!!\}/s',
+            function ($matches) {
+                $expression = trim($matches[1]);
+                return "<?= {$expression}; ?>";
+            },
+            $content
+        );
+
+        // Parse escaped expressions {{ expression }} (HTML escaped)
+        $content = preg_replace_callback(
+            '/\{\{\s*(.+?)\s*\}\}/s',
+            function ($matches) {
+                $expression = trim($matches[1]);
+                return "<?= htmlspecialchars({$expression}, ENT_QUOTES, 'UTF-8'); ?>";
+            },
+            $content
+        );
+
+        return $content;
+    }
+
+    /**
+     * Compile and evaluate PHP expressions in content.
+     *
+     * @param  string  $content
+     * @return string
+     */
+    protected function evaluatePhpExpressions(string $content): string
+    {
+        // Parse the template syntax to PHP
+        $phpContent = $this->parsePhpExpressions($content);
+
+        // Extract data to make it available
+        extract($this->data);
+
+        // Evaluate the PHP content
+        ob_start();
+        try {
+            eval('?>' . $phpContent);
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            throw new SwidlyException("Template evaluation error: " . $e->getMessage());
+        }
+        return ob_get_clean();
     }
 
     /**
@@ -119,6 +209,7 @@ class View
 
         // Look in the theme's views directory
         $viewPath = $themePath . '/views/' . $view . '.php';
+
         if (file_exists($viewPath)) {
             return $viewPath;
         }
@@ -133,8 +224,44 @@ class View
      */
     public function registerCommonComponents(): void
     {
-        $this->component('alert', \Swidly\Components\Alert::class);
+        //$this->component('alert', \Swidly\Components\Alert::class);
         // Add more common components here
+        
+        // Auto-load theme components
+        $this->loadThemeComponents();
+    }
+
+    /**
+     * Auto-load all components from the theme's components directory.
+     *
+     * @return void
+     */
+    protected function loadThemeComponents(): void
+    {
+        $theme = Swidly::theme();
+        $componentsPath = $theme['base'] . '/components';
+        
+        if (!is_dir($componentsPath)) {
+            return;
+        }
+
+        $files = glob($componentsPath . '/*.php');
+        
+        foreach ($files as $file) {
+            $fileName = basename($file, '.php');
+            
+            // Convert PascalCase to kebab-case for component alias
+            $alias = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $fileName));
+            
+            // Build the full class name
+            $namespace = $theme['namespace'] ?? 'Swidly\\themes\\' . basename($theme['base']);
+            $className = $namespace . '\\components\\' . $fileName;
+            
+            // Register the component if the class exists
+            if (class_exists($className)) {
+                $this->component($alias, $className);
+            }
+        }
     }
 
     /**
@@ -148,7 +275,7 @@ class View
             return null;
         }
 
-        $pattern = '/{([a-zA-Z0-9_:]+)(?:,\s*default=([a-zA-Z0-9_:]+))?}/';
+        $pattern = '/{{([a-zA-Z0-9_:]+)(?:,\s*default=([a-zA-Z0-9_:]+))?}}/';
 
         $result = preg_replace_callback($pattern, function ($matches) {
             $key = htmlspecialchars($matches[1], ENT_QUOTES, 'UTF-8');
@@ -202,11 +329,20 @@ class View
      */
     public function parseIncludes(string $str): string
     {
-        $pattern = '/\{@include\s+[\'"]?([\w.\/-]+)[\'"]?\s*(.*?)}/';
-
+        $str = $this->parse($str);
+        $pattern = '/\{@include\s+([\'"])?([^\'"]+)\1\s*(.*?)}/';
         return preg_replace_callback($pattern, function ($matches) {
-            $file = $matches[1];
-            
+            $file = $matches[2];
+            $params = [];
+
+            if (!empty($matches[3])) {
+                // Option 1: Parse space-separated key=value pairs
+                preg_match_all('/(\w+)=[\'"]?(.*?)[\'"]?(?:\s|$)/', $matches[3], $paramMatches, PREG_SET_ORDER);
+                foreach ($paramMatches as $param) {
+                    $params[$param[1]] = $param[2];
+                }
+            }
+
             // Prevent path traversal
             if (preg_match('/\.\.\/|\.\.\\\\/', $file)) {
                 throw new SwidlyException('Invalid include path', 400);
@@ -218,17 +354,18 @@ class View
             }
 
             $file = $base . '/views/' . ltrim($file, '/') . '.php';
-            
+
             // Verify file is within allowed paths
             $realPath = realpath($file);
             if (!$realPath || !$this->isPathInSafeDirectories($realPath)) {
                 throw new SwidlyException('Invalid include path', 400);
             }
+
             $params = [];
 
-            if (!empty($matches[2])) {
+            if (!empty($matches[3])) {
                 // Option 1: Parse space-separated key=value pairs
-                preg_match_all('/(\w+)=[\'"]?(.*?)[\'"]?(?:\s|$)/', $matches[2], $paramMatches, PREG_SET_ORDER);
+                preg_match_all('/(\w+)=[\'"]?(.*?)[\'"]?(?:\s|$)/', $matches[3], $paramMatches, PREG_SET_ORDER);
                 foreach ($paramMatches as $param) {
                     $params[$param[1]] = $param[2];
                 }
@@ -236,11 +373,12 @@ class View
 
             if (file_exists($file)) {
                 extract($params);
+                extract($this->data);
                 ob_start();
-                require_once $file;
+                require $file;
                 $content = ob_get_clean();
 
-                return $content;
+                return $content !== false ? $content : '';
             }
 
             return '';
@@ -255,7 +393,8 @@ class View
     protected function isPathInSafeDirectories(string $path): bool
     {
         foreach ($this->safeIncludePaths as $safePath) {
-            if (str_starts_with($path, realpath($safePath))) {
+            $realSafePath = realpath($safePath);
+            if ($realSafePath !== false && str_starts_with($path, $realSafePath)) {
                 return true;
             }
         }
@@ -333,12 +472,52 @@ class View
                 extract($attrs);
                 ob_start();
                 require $layoutFile;
-                $content = ob_get_clean();
+                $layoutContent = ob_get_clean();
 
                 //look for {{{children}}} placeholder and replace it
-                $content = str_replace('{{{children}}}', $children, $content);
+                $content = str_replace('{{{children}}}', $children, $layoutContent !== false ? $layoutContent : '');
             }
         }
         return $content;
+    }
+
+    /**
+     * Start a new section.
+     *
+     * @param  string  $section
+     * @return void
+     */
+    public function section(string $section): void
+    {
+        $this->currentSection = $section;
+        ob_start();
+    }
+
+    /**
+     * End the current section.
+     *
+     * @return void
+     */
+    public function endSection(): void
+    {
+        if ($this->currentSection === null) {
+            throw new SwidlyException('Cannot end section without starting one.');
+        }
+
+        $content = ob_get_clean();
+        $this->sections[$this->currentSection] = $content !== false ? $content : '';
+        $this->currentSection = null;
+    }
+
+    /**
+     * Yield the content for a section.
+     *
+     * @param  string  $section
+     * @param  string  $default
+     * @return string
+     */
+    public function yield(string $section, string $default = ''): string
+    {
+        return $this->sections[$section] ?? $default;
     }
 }
