@@ -557,17 +557,16 @@ class View
             $str
         );
 
-        // Parse @push / @endpush directives
+        // Parse @push / @endpush directives - extract content blocks first
         $str = preg_replace_callback(
-            '/@push\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/',
+            '/@push\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)(.*?)@endpush/s',
             function ($matches) {
-                return '<?php $GLOBALS[\'__view\']->startPush(\'' . addslashes($matches[1]) . '\'); ?>';
+                $stackName = $matches[1];
+                $content = $matches[2]; // Don't trim - preserve formatting
+                // Use base64 encoding to safely pass content through string literal
+                $encoded = base64_encode($content);
+                return '<?php $GLOBALS[\'__view\']->pushToStack(\'' . addslashes($stackName) . '\', base64_decode(\'' . $encoded . '\')); ?>';
             },
-            $str
-        );
-        $str = preg_replace(
-            '/@endpush\b/',
-            '<?php $GLOBALS[\'__view\']->stopPush(); ?>',
             $str
         );
 
@@ -743,10 +742,25 @@ class View
         }
 
         $content = ob_get_clean();
-        if ($content !== false) {
-            $this->push($this->currentStack, $content);
+        if ($content !== false && $content !== '') {
+            $this->pushToStack($this->currentStack, $content);
         }
         $this->currentStack = null;
+    }
+
+    /**
+     * Push content to a stack directly.
+     *
+     * @param  string  $stack
+     * @param  string  $content
+     * @return void
+     */
+    public function pushToStack(string $stack, string $content): void
+    {
+        if (!isset($this->stacks[$stack])) {
+            $this->stacks[$stack] = [];
+        }
+        $this->stacks[$stack][] = $content;
     }
 
     /**
@@ -758,10 +772,7 @@ class View
      */
     protected function push(string $stack, string $content): void
     {
-        if (!isset($this->stacks[$stack])) {
-            $this->stacks[$stack] = [];
-        }
-        $this->stacks[$stack][] = $content;
+        $this->pushToStack($stack, $content);
     }
 
     /**
