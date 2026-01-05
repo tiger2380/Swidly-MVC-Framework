@@ -12,6 +12,7 @@ use Swidly\Middleware\CsrfMiddleware;
 use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Attributes\RouteGroup;
 use Swidly\Core\Factory\CommandFactory;
+use Swidly\Middleware\AuthMiddleware;
 
 /**
  * @throws SwidlyException
@@ -55,8 +56,8 @@ class BlogController extends Controller {
 
         if ($req->isPost()) {
             $data = $req->getBody();
-            $blog->setTitle($data['title']);
-            $blog->setContent($data['content']);
+            $blog->title = ($data['title']);
+            $blog->content = $data['content'];
             $blog->save();
 
             \Swidly\Core\Store::save('success', 'Post updated successfully');
@@ -77,15 +78,23 @@ class BlogController extends Controller {
 
         if ($req->isPost()) {
             $data = $req->getBody();
-            $blog->setTitle($data['title']);
-            $blog->setContent($data['content']);
-            $blog->setSlug($data['slug'] ?? slugify($data['title']));
-            $blog->setCreatedAt(date('Y-m-d H:i:s'));
-            $blog->setUpdatedAt(date('Y-m-d H:i:s'));
+            $blog->title = $data['title'];
+            $blog->content = $data['content'];
+            $blog->slug = $data['slug'] ?? slugify($data['title']);
+            $blog->createdAt = date('Y-m-d H:i:s');
+            $blog->updatedAt = date('Y-m-d H:i:s');
+            $blog->userId = AuthMiddleware::getUserId() ?? -1;
+            $blog->categoryId = 1;
+            $blog->status = 1;
+            $blog->views = 0;
+            $blog->likes = 0;
+            $blog->dislikes = 0;
+            $blog->comments = null;
+            $blog->shares = 0;
             $blog->save();
 
             \Swidly\Core\Store::save('success', 'Post created successfully');
-            return $res->redirect('blog/'.$data['slug']);
+            return $res->redirect('blog/'.$blog->slug);
         }
 
         return $this->render('edit_post', [

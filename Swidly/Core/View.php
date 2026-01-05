@@ -115,7 +115,8 @@ class View
         // Compile components
         $components = $this->compiler->compile($contents);
         $parsed = $this->parseIncludes($components);
-        $evaluated = $this->evaluatePhpExpressions($parsed);
+        $withDirectives = $this->parseDirectives($parsed);
+        $evaluated = $this->evaluatePhpExpressions($withDirectives);
         $finalContent = $this->layout($evaluated);
         return $finalContent;
     }
@@ -383,6 +384,166 @@ class View
 
             return '';
         }, $str);
+    }
+
+    /**
+     * Parse template directives like @csrf
+     * @param string $str Template string to parse
+     * @return string Processed template string
+     */
+    protected function parseDirectives(string $str): string
+    {
+        // Parse @csrf directive
+        $str = preg_replace(
+            '/@csrf\b/',
+            '<input type="hidden" name="csrf" value="<?= \\Swidly\\Core\\Store::csrf() ?>">',
+            $str
+        );
+
+        // Parse @method directive for HTTP method spoofing
+        $str = preg_replace_callback(
+            '/@method\s*\(\s*[\'"](\w+)[\'"]\s*\)/',
+            function ($matches) {
+                $method = strtoupper($matches[1]);
+                return '<input type="hidden" name="_method" value="' . $method . '">';
+            },
+            $str
+        );
+
+        // Parse @auth / @endauth directives
+        $str = preg_replace(
+            '/@auth\b/',
+            '<?php if (new \\Swidly\\Core\\Middleware\\AuthMiddleware::check()): ?>',
+            $str
+        );
+        $str = preg_replace('/@endauth\b/', '<?php endif; ?>', $str);
+
+        // Parse @guest / @endguest directives
+        $str = preg_replace(
+            '/@guest\b/',
+            '<?php if (!(new \\Swidly\\Core\\Middleware\\AuthMiddleware::check())): ?>',
+            $str
+        );
+        $str = preg_replace('/@endguest\b/', '<?php endif; ?>', $str);
+
+        // Parse @if / @elseif / @else / @endif directives
+        $str = preg_replace_callback(
+            '/@if\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php if (' . $matches[1] . '): ?>';
+            },
+            $str
+        );
+        $str = preg_replace_callback(
+            '/@elseif\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php elseif (' . $matches[1] . '): ?>';
+            },
+            $str
+        );
+        $str = preg_replace('/@else\b/', '<?php else: ?>', $str);
+        $str = preg_replace('/@endif\b/', '<?php endif; ?>', $str);
+
+        // Parse @isset / @endisset directives
+        $str = preg_replace_callback(
+            '/@isset\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php if (isset(' . $matches[1] . ')): ?>';
+            },
+            $str
+        );
+        $str = preg_replace('/@endisset\b/', '<?php endif; ?>', $str);
+
+        // Parse @empty / @endempty directives
+        $str = preg_replace_callback(
+            '/@empty\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php if (empty(' . $matches[1] . ')): ?>';
+            },
+            $str
+        );
+        $str = preg_replace('/@endempty\b/', '<?php endif; ?>', $str);
+
+        // Parse @foreach / @endforeach directives
+        $str = preg_replace_callback(
+            '/@foreach\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php foreach (' . $matches[1] . '): ?>';
+            },
+            $str
+        );
+        $str = preg_replace('/@endforeach\b/', '<?php endforeach; ?>', $str);
+
+        // Parse @for / @endfor directives
+        $str = preg_replace_callback(
+            '/@for\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php for (' . $matches[1] . '): ?>';
+            },
+            $str
+        );
+        $str = preg_replace('/@endfor\b/', '<?php endfor; ?>', $str);
+
+        // Parse @while / @endwhile directives
+        $str = preg_replace_callback(
+            '/@while\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php while (' . $matches[1] . '): ?>';
+            },
+            $str
+        );
+        $str = preg_replace('/@endwhile\b/', '<?php endwhile; ?>', $str);
+
+        // Parse @continue and @break directives
+        $str = preg_replace_callback(
+            '/@continue(?:\s*\(\s*(\d+)\s*\))?/',
+            function ($matches) {
+                $level = isset($matches[1]) ? (int)$matches[1] : 1;
+                return '<?php continue ' . $level . '; ?>';
+            },
+            $str
+        );
+        $str = preg_replace_callback(
+            '/@break(?:\s*\(\s*(\d+)\s*\))?/',
+            function ($matches) {
+                $level = isset($matches[1]) ? (int)$matches[1] : 1;
+                return '<?php break ' . $level . '; ?>';
+            },
+            $str
+        );
+
+        // Parse @php / @endphp directives for raw PHP blocks
+        $str = preg_replace('/@php\b/', '<?php', $str);
+        $str = preg_replace('/@endphp\b/', '?>', $str);
+
+        // Parse @dd directive for dump and die
+        $str = preg_replace_callback(
+            '/@dd\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php dd(' . $matches[1] . '); ?>';
+            },
+            $str
+        );
+
+        // Parse @dump directive
+        $str = preg_replace_callback(
+            '/@dump\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php var_dump(' . $matches[1] . '); ?>';
+            },
+            $str
+        );
+
+        // Parse @json directive
+        $str = preg_replace_callback(
+            '/@json\s*\(\s*(.+?)\s*\)/',
+            function ($matches) {
+                return '<?= json_encode(' . $matches[1] . ', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES); ?>';
+            },
+            $str
+        );
+
+        return $str;
     }
 
     /**

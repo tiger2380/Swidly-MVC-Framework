@@ -1,7 +1,8 @@
-{@include 'inc/header'}
+<x-header />
+<h1>Contact Us</h1>
 <?= \Swidly\Core\Store::flashMessage('success') ?>
 <form method="POST">
-    <input type="hidden" name="<?= \Swidly\Core\Store::csrf() ?>">
+    @csrf
     <label>First Name</label>
     <input type="text" name="first_name" placeholder="Your name.."><br/>
     <label>Last Name</label>
@@ -12,4 +13,4 @@
     <textarea name="subject" placeholder="Write something.." style="height:200px"></textarea><br/>
     <input type="submit" value="Submit">
 </form>
-{@include inc/footer}
+<x-footer />
