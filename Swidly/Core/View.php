@@ -45,6 +45,20 @@ class View
     protected ?string $currentSection = null;
 
     /**
+     * The stacks (push sections) data.
+     *
+     * @var array
+     */
+    protected array $stacks = [];
+
+    /**
+     * The current stack being captured.
+     *
+     * @var string|null
+     */
+    protected ?string $currentStack = null;
+
+    /**
      * Create a new view instance.
      */
     public function __construct()
@@ -413,7 +427,7 @@ class View
         // Parse @auth / @endauth directives
         $str = preg_replace(
             '/@auth\b/',
-            '<?php if (\\Swidly\\Core\\Middleware\\AuthMiddleware::check()): ?>',
+            '<?php if (\\Swidly\\Middleware\\AuthMiddleware::check()): ?>',
             $str
         );
         $str = preg_replace('/@endauth\b/', '<?php endif; ?>', $str);
@@ -421,7 +435,7 @@ class View
         // Parse @guest / @endguest directives
         $str = preg_replace(
             '/@guest\b/',
-            '<?php if (!(\\Swidly\\Core\\Middleware\\AuthMiddleware::check())): ?>',
+            '<?php if (!(\\Swidly\\Middleware\\AuthMiddleware::check())): ?>',
             $str
         );
         $str = preg_replace('/@endguest\b/', '<?php endif; ?>', $str);
@@ -539,6 +553,29 @@ class View
             '/@json\s*\(\s*(.+?)\s*\)/',
             function ($matches) {
                 return '<?= json_encode(' . $matches[1] . ', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES); ?>';
+            },
+            $str
+        );
+
+        // Parse @push / @endpush directives
+        $str = preg_replace_callback(
+            '/@push\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/',
+            function ($matches) {
+                return '<?php $GLOBALS[\'__view\']->startPush(\'' . addslashes($matches[1]) . '\'); ?>';
+            },
+            $str
+        );
+        $str = preg_replace(
+            '/@endpush\b/',
+            '<?php $GLOBALS[\'__view\']->stopPush(); ?>',
+            $str
+        );
+
+        // Parse @stack directive to output pushed content
+        $str = preg_replace_callback(
+            '/@stack\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/',
+            function ($matches) {
+                return '<?= $GLOBALS[\'__view\']->yieldPushContent(\'' . addslashes($matches[1]) . '\'); ?>';
             },
             $str
         );
@@ -680,5 +717,64 @@ class View
     public function yield(string $section, string $default = ''): string
     {
         return $this->sections[$section] ?? $default;
+    }
+
+    /**
+     * Start pushing content to a stack.
+     *
+     * @param  string  $stack
+     * @return void
+     */
+    public function startPush(string $stack): void
+    {
+        $this->currentStack = $stack;
+        ob_start();
+    }
+
+    /**
+     * Stop pushing content to a stack.
+     *
+     * @return void
+     */
+    public function stopPush(): void
+    {
+        if ($this->currentStack === null) {
+            throw new SwidlyException('Cannot end push without starting one.');
+        }
+
+        $content = ob_get_clean();
+        if ($content !== false) {
+            $this->push($this->currentStack, $content);
+        }
+        $this->currentStack = null;
+    }
+
+    /**
+     * Push content to a stack.
+     *
+     * @param  string  $stack
+     * @param  string  $content
+     * @return void
+     */
+    protected function push(string $stack, string $content): void
+    {
+        if (!isset($this->stacks[$stack])) {
+            $this->stacks[$stack] = [];
+        }
+        $this->stacks[$stack][] = $content;
+    }
+
+    /**
+     * Yield the pushed content for a stack.
+     *
+     * @param  string  $stack
+     * @return string
+     */
+    public function yieldPushContent(string $stack): string
+    {
+        if (!isset($this->stacks[$stack])) {
+            return '';
+        }
+        return implode("\n", $this->stacks[$stack]);
     }
 }
