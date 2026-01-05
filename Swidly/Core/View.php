@@ -413,7 +413,7 @@ class View
         // Parse @auth / @endauth directives
         $str = preg_replace(
             '/@auth\b/',
-            '<?php if (new \\Swidly\\Core\\Middleware\\AuthMiddleware::check()): ?>',
+            '<?php if (\\Swidly\\Core\\Middleware\\AuthMiddleware::check()): ?>',
             $str
         );
         $str = preg_replace('/@endauth\b/', '<?php endif; ?>', $str);
@@ -421,7 +421,7 @@ class View
         // Parse @guest / @endguest directives
         $str = preg_replace(
             '/@guest\b/',
-            '<?php if (!(new \\Swidly\\Core\\Middleware\\AuthMiddleware::check())): ?>',
+            '<?php if (!(\\Swidly\\Core\\Middleware\\AuthMiddleware::check())): ?>',
             $str
         );
         $str = preg_replace('/@endguest\b/', '<?php endif; ?>', $str);
