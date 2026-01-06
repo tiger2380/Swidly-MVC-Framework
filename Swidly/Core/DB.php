@@ -10,7 +10,7 @@ $charset = Swidly::getConfig('db::charset');
 
 // Check if the database connection details are set
 if (empty($servername) || empty($dbname) || empty($username) || empty($password)) {
-    dd('Database connection details are not set in the configuration.');
+    throw new \RuntimeException('Database connection details are not set in the configuration.');
 }
 // Check if the database connection details are valid
 if (!is_string($servername) || !is_string($dbname) || !is_string($username) || !is_string($password)) {
@@ -161,7 +161,7 @@ class DB
 
     public function printSQL() {
         $sql = $this->buildQuery();
-        print_r($sql);
+        return $sql;
     }
 
     public function insert(array $data): bool
@@ -174,7 +174,6 @@ class DB
             $stmt = $this->conn->prepare($sql);
             return $stmt->execute(array_values($data));
         } catch (\PDOException $e) {
-            dd($e->getMessage());
             throw new \RuntimeException('Insert failed: ' . $e->getMessage());
         }
     }

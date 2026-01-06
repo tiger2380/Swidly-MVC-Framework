@@ -23,6 +23,13 @@ abstract class Component
     public ComponentAttributes $attributes;
 
     /**
+     * The view instance.
+     *
+     * @var View
+     */
+    protected View $view;
+
+    /**
      * Create a new component instance.
      *
      * @param  array  $attributes
@@ -30,6 +37,8 @@ abstract class Component
     public function __construct(array $attributes = [])
     {
         $this->attributes = new ComponentAttributes($attributes);
+        $this->view = View::getInstance();
+        $this->view->registerCommonComponents();
         $this->setUp();
     }
 

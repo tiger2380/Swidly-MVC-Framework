@@ -92,7 +92,6 @@ STR;
 
             if (isset($options['u']) && $options['u']) {
                 $migrations = SWIDLY_ROOT . '/Migrations';
-                print_r($migrations);
             }
 
             if (isset($this->options['verbose']) && $this->options['verbose']) {

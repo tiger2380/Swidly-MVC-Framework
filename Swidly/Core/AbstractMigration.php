@@ -39,6 +39,6 @@ abstract class AbstractMigration
     }
 
     public function run() {
-        print_r($this->plannedSql);
+        // Execute planned SQL
     }
 }

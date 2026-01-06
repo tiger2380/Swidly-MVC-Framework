@@ -367,7 +367,6 @@ class Model
                 'modelClass' => get_class($this),
                 'error' => $e->getMessage()
             ];
-            dd("[Model Error] Save failed: " . json_encode($context));
             throw new SwidlyException("Error saving record: " . $e->getMessage(), 500, $e);
         }
     }

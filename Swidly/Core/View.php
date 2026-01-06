@@ -59,15 +59,47 @@ class View
     protected ?string $currentStack = null;
 
     /**
+     * Unique identifier for this view instance.
+     *
+     * @var string
+     */
+    protected string $instanceId;
+
+    protected static ?View $instance = null;
+
+    protected bool $isChild = false;
+
+    /**
      * Create a new view instance.
      */
     public function __construct()
     {
+        $this->instanceId = uniqid('view_', true);
         $this->compiler = new ComponentCompiler();
         $this->safeIncludePaths = [Swidly::theme()['base'] . '/views/'];
         
         // Make view instance globally accessible
         $GLOBALS['__view'] = $this;
+    }
+
+    /**
+     * Get the unique instance ID.
+     *
+     * @return string
+     */
+    public function getInstanceId(): string
+    {
+        return $this->instanceId;
+    }
+
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+            self::$instance->isChild = true;
+        }
+
+        return self::$instance;
     }
 
     /**
@@ -126,13 +158,35 @@ class View
             $contents = '';
         }
 
-        // Compile components
-        $components = $this->compiler->compile($contents);
-        $parsed = $this->parseIncludes($components);
-        $withDirectives = $this->parseDirectives($parsed);
-        $evaluated = $this->evaluatePhpExpressions($withDirectives);
-        $finalContent = $this->layout($evaluated);
-        return $finalContent;
+        // Recursively compile components and parse directives to handle nested components
+        $maxIterations = 10; // Prevent infinite loops
+        $iteration = 0;
+        $previousContent = '';
+
+        while ($contents !== $previousContent && $iteration < $maxIterations) {
+            $previousContent = $contents;
+        
+            // Compile components (which may output @push/@stack directives)
+            $contents = $this->compiler->compile($contents);
+
+            // Parse directives (including converting @stack to placeholders and @push to PHP code)
+            // This ensures any directives from components are properly parsed
+            $contents = $this->parseDirectives($contents);
+
+            $iteration++;
+        }
+        
+        // Parse includes
+        $parsed = $this->parseIncludes($contents);
+
+        // After evaluation, all @push directives have been executed and stacks are populated
+        // Now replace stack placeholders with actual content
+        $finalContent = $this->replaceStackPlaceholders($parsed);
+
+        // Evaluate PHP expressions (this executes @push directives, populating stacks)
+        $evaluated = $this->evaluatePhpExpressions($finalContent);
+
+        return $evaluated;
     }
 
     /**
@@ -387,10 +441,25 @@ class View
             }
 
             if (file_exists($file)) {
+                // Read the file content and parse directives first
+                $fileContent = file_get_contents($file);
+                if ($fileContent === false) {
+                    return '';
+                }
+                
+                // Parse directives (including @push/@endpush) before evaluation
+                $parsedContent = $this->parseDirectives($fileContent);
+                
+                // Now evaluate the parsed content
                 extract($params);
                 extract($this->data);
                 ob_start();
-                require $file;
+                try {
+                    eval('?>' . $parsedContent);
+                } catch (\Throwable $e) {
+                    ob_end_clean();
+                    throw new SwidlyException("Include evaluation error in {$file}: " . $e->getMessage());
+                }
                 $content = ob_get_clean();
 
                 return $content !== false ? $content : '';
@@ -570,11 +639,12 @@ class View
             $str
         );
 
-        // Parse @stack directive to output pushed content
+        // Parse @stack directive to output pushed content - use placeholder to delay evaluation
         $str = preg_replace_callback(
             '/@stack\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/',
             function ($matches) {
-                return '<?= $GLOBALS[\'__view\']->yieldPushContent(\'' . addslashes($matches[1]) . '\'); ?>';
+                // Use a unique placeholder that will be replaced after all pushes are executed
+                return '___STACK_PLACEHOLDER_' . $matches[1] . '___';
             },
             $str
         );
@@ -596,86 +666,6 @@ class View
             }
         }
         return false;
-    }
-
-    /**
-     * Parse layout blocks and apply them to content
-     *
-     * @param  string  $content
-     * @return string
-     */
-    protected function layout(string $content): string {
-        // Step 1: Extract all layout blocks
-        $layoutPattern = '/(?s)\{@layout\s*(?P<attributes>[^}]*)\}\s*(?P<children>.*?)\s*\{@endlayout\}/';
-        preg_match_all($layoutPattern, $content, $matches, PREG_SET_ORDER);
-
-        $layouts = [];
-
-        foreach ($matches as $m) {
-            $attrString = trim($m['attributes']);
-            $children   = trim($m['children']);
-
-            // Step 2: Parse attributes into key/value pairs
-            $attrs = [];
-
-            // This pattern supports: key="value", key='value', key=value, key={json}, flag (true)
-            $attrPattern = '/
-                (\w+)                     
-                (?:\s*=\s*                    
-                    (?:
-                        "([^"]*)"             
-                        |\'([^\']*)\'          
-                        |(\{[^}]*\})           
-                        |([^\s]+)         
-                    )
-                )?
-            /x';
-
-            preg_match_all($attrPattern, $attrString, $attrMatches, PREG_SET_ORDER);
-
-            foreach ($attrMatches as $a) {
-                $key = $a[1];
-                $value = null;
-
-                // Determine which capture group matched
-                if (!empty($a[2])) {
-                    $value = $a[2]; // double quotes
-                } elseif (!empty($a[3])) {
-                    $value = $a[3]; // single quotes
-                } elseif (!empty($a[4])) {
-                    $value = json_decode($a[4], true) ?? $a[4]; // try decode JSON-like values
-                } elseif (!empty($a[5])) {
-                    $value = $a[5]; // unquoted
-                } else {
-                    $value = true; // flag attribute, like "visible"
-                }
-
-                $attrs[$key] = $value;
-            }
-
-            $layouts[] = [
-                'attributes' => $attrs,
-                'children'   => $children,
-            ];
-        }
-
-        // Step 3: Apply layouts in reverse order (innermost first)
-        foreach (array_reverse($layouts) as $layout) {
-            $attrs = $layout['attributes'];
-            $children = $layout['children'];
-            $file = $attrs['file'] ?? 'layout';
-            $layoutFile = Swidly::theme()['base'] . '/views/' . ltrim($file, '/') . '.php';
-            if (file_exists($layoutFile)) {
-                extract($attrs);
-                ob_start();
-                require $layoutFile;
-                $layoutContent = ob_get_clean();
-
-                //look for {{{children}}} placeholder and replace it
-                $content = str_replace('{{{children}}}', $children, $layoutContent !== false ? $layoutContent : '');
-            }
-        }
-        return $content;
     }
 
     /**
@@ -757,10 +747,10 @@ class View
      */
     public function pushToStack(string $stack, string $content): void
     {
-        if (!isset($this->stacks[$stack])) {
-            $this->stacks[$stack] = [];
+        if (!isset($GLOBALS['__view']->stacks[$stack])) {
+            $GLOBALS['__view']->stacks[$stack] = [];
         }
-        $this->stacks[$stack][] = $content;
+        $GLOBALS['__view']->stacks[$stack][] = $content;
     }
 
     /**
@@ -783,9 +773,26 @@ class View
      */
     public function yieldPushContent(string $stack): string
     {
-        if (!isset($this->stacks[$stack])) {
+        if (!isset($GLOBALS['__view']->stacks[$stack])) {
             return '';
         }
-        return implode("\n", $this->stacks[$stack]);
+        return implode("\n", $GLOBALS['__view']->stacks[$stack]);
+    }
+
+    /**
+     * Replace stack placeholders with actual stack content.
+     *
+     * @param  string  $content
+     * @return string
+     */
+    protected function replaceStackPlaceholders(string $content): string
+    {
+        return preg_replace_callback(
+            '/___STACK_PLACEHOLDER_([^_]+)___/',
+            function ($matches) {
+                return $this->isChild ? $matches[0] : $this->yieldPushContent($matches[1]);
+            },
+            $content
+        );
     }
 }

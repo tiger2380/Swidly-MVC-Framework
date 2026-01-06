@@ -277,13 +277,11 @@ const { state, watch } = createWatchableState({ count: 0, name: 'John' });
 
 // This function will re-run when state.count changes
 watch(() => {
-    console.log(`The count is now: ${state.count}`);
     document.getElementById('counter').textContent = state.count;
 });
 
 // This one watches name
 watch(() => {
-    console.log(`Name changed to: ${state.name}`);
     document.getElementById('name').textContent = state.name;
 });
 
@@ -404,8 +402,8 @@ export class useSinglePage {
      */
     constructor(options = {}) {
         const defaults = {
-            onBeforeFetch: () => console.log('before fetch'),
-            onAfterFetch: () => console.log('after fetch'),
+            onBeforeFetch: () => {},
+            onAfterFetch: () => {},
             delimiter: '|',
             appElementId: 'app',
             sidebarElementId: 'sidebar'

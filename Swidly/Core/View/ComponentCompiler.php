@@ -135,7 +135,7 @@ class ComponentCompiler
             // Get the component class
             $class = $this->resolveComponent($component);
             if (!$class) {
-                dd("Component [{$component}] not found.");
+                throw new \RuntimeException("Component [{$component}] not found.");
             }
 
             // Create and render the component

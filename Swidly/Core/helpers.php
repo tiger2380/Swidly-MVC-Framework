@@ -359,7 +359,7 @@ function resizeImageWebP($image, $width, $height) {
             imagewebp($destination, $newImage, 100);
             return $newImage;
         } catch(Exception $ex) {
-            dd($ex->getMessage());
+            throw $ex;
         } finally {
             imagedestroy($destination);
             imagedestroy($original);
