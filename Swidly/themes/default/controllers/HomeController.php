@@ -47,6 +47,13 @@ class HomeController extends Controller {
     #[Route(methods: ['GET', 'POST'], path: '/contact', name: 'contact')]
     function Contact($req, $res) {
         if ($req->isPost()) {
+            $req->validate([
+                'first_name' => 'required|string',
+                'last_name' => 'required|string',
+                'email' => 'required|email',
+                'message' => 'required|string'
+            ]);
+            
             $firstName = $req->get('first_name');
             
             $res->addMessage('success', 'Hi, '. $firstName .'. Your message has been submitted');

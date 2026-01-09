@@ -1,3 +1,4 @@
+<?php dump(get_defined_vars()) ?>
 
 <!DOCTYPE html>
 <html lang="en">

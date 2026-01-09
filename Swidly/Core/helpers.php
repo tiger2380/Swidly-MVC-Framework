@@ -1403,3 +1403,11 @@ function parseLinks(string $text, array $attributes = []): string
         );
     }, $text);
 }
+
+function old(string $key, $default = '')
+{
+    if (array_key_exists('_old_input', $_SESSION) && array_key_exists($key, $_SESSION['_old_input'])) {
+        return $_SESSION['_old_input'][$key];
+    }
+    return $default;
+}

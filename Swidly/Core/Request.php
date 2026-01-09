@@ -11,6 +11,8 @@ class Request
     protected ?object $user = null;
     protected ?array $decoded = null;
     public array $vars = array();
+    private array $errors = [];
+    private array $old = [];
     /**
      * @var mixed|void
      */
@@ -36,6 +38,7 @@ class Request
         $this->request = $this->sanitizeInput(array_merge($_GET, $_POST, $decoded));
         $this->server = $this->filterServerVars($_SERVER);
         $this->db = DB::create();
+        $this->flashInput();
         $this->CheckAuthentication();
     }
 
@@ -318,5 +321,134 @@ class Request
     public function setTrustedHosts(array $hosts): void
     {
         $this->trustedHosts = array_map('strval', $hosts);
+    }
+
+    public function validate(array $rules): void
+    {
+        foreach ($rules as $field => $ruleSet) {
+            $value = $this->get($field);
+            $fieldRules = is_string($ruleSet) ? explode('|', $ruleSet) : $ruleSet;
+            
+            foreach ($fieldRules as $rule) {
+                $params = [];
+                if (strpos($rule, ':') !== false) {
+                    [$rule, $paramString] = explode(':', $rule, 2);
+                    $params = explode(',', $paramString);
+                }
+                
+                $error = $this->applyRule($field, $value, $rule, $params);
+                if ($error !== null) {
+                    $this->errors[$field][] = $error;
+                }
+            }
+        }
+        
+        if ($this->hasErrors()) {
+            $errors = new Error($this->errors);
+            $view = View::getInstance();
+            $view->registerCommonComponents();
+            $view->with('errors', $errors);
+            $view->with('old', $this->request);
+            
+            echo $view->render(Store::get('_old_input')['path']);
+            exit;
+        }
+    }
+
+    public function hasErrors(): bool
+    {
+        return !empty($this->errors);
+    }
+
+    public function getErrors(): Error
+    {
+        return new Error($this->errors);
+    }
+
+    /**
+     * Flash current input to session for next request
+     */
+    public function flashInput(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        Store::save('_old_input', $this->request);
+    }
+
+    private function applyRule(string $field, $value, string $rule, array $params): ?string
+    {
+        switch ($rule) {
+            case 'required':
+                if (empty($value) && $value !== '0') {
+                    return "$field is required";
+                }
+                break;
+                
+            case 'email':
+                if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return "$field must be a valid email";
+                }
+                break;
+                
+            case 'min':
+                $min = (int)($params[0] ?? 0);
+                if (is_string($value) && strlen($value) < $min) {
+                    return "$field must be at least $min characters";
+                }
+                if (is_numeric($value) && $value < $min) {
+                    return "$field must be at least $min";
+                }
+                break;
+                
+            case 'max':
+                $max = (int)($params[0] ?? 0);
+                if (is_string($value) && strlen($value) > $max) {
+                    return "$field must not exceed $max characters";
+                }
+                if (is_numeric($value) && $value > $max) {
+                    return "$field must not exceed $max";
+                }
+                break;
+                
+            case 'numeric':
+                if (!is_numeric($value)) {
+                    return "$field must be numeric";
+                }
+                break;
+                
+            case 'alpha':
+                if (!ctype_alpha(str_replace(' ', '', (string)$value))) {
+                    return "$field must contain only letters";
+                }
+                break;
+                
+            case 'alphanumeric':
+                if (!ctype_alnum(str_replace(' ', '', (string)$value))) {
+                    return "$field must contain only letters and numbers";
+                }
+                break;
+                
+            case 'url':
+                if (!filter_var($value, FILTER_VALIDATE_URL)) {
+                    return "$field must be a valid URL";
+                }
+                break;
+                
+            case 'in':
+                if (!in_array($value, $params, true)) {
+                    return "$field must be one of: " . implode(', ', $params);
+                }
+                break;
+                
+            case 'regex':
+                if (!preg_match($params[0] ?? '//', (string)$value)) {
+                    return "$field format is invalid";
+                }
+                break;
+        }
+        
+        return null;
     }
 }
