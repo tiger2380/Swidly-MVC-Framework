@@ -93,9 +93,10 @@ class View
     }
 
     public static function getInstance(): self
-    {
+    {;
         if (self::$instance === null) {
             self::$instance = new self();
+        } else {
             self::$instance->isChild = true;
         }
 

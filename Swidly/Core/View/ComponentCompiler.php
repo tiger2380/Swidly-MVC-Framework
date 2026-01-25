@@ -134,7 +134,6 @@ class ComponentCompiler
 
             // Get the component class
             $class = $this->resolveComponent($component);
-
             if (!$class) {
                 throw new \RuntimeException("Component [{$component}] not found.");
             }
@@ -144,7 +143,7 @@ class ComponentCompiler
             if (!($instance instanceof Component)) {
                 throw new SwidlyException("Class [{$class}] must extend the Component class.");
             }
-            
+            ;
             $rendered = $instance->render();
             
             // Recursively compile any nested components in the rendered output

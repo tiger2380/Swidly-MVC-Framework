@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Swidly\Core\Services;
 
+use Swidly\Core\Model;
 use Swidly\Core\Swidly;
 
 /**
@@ -40,7 +41,8 @@ class AIService
         }
 
         $prompt = $this->buildPrompt($params);
-        $response = $this->callAI($prompt);
+        $systemMessage = 'You are an expert travel planner. Create detailed, practical, and enjoyable itineraries. Always respond with valid JSON.';
+        $response = $this->callAI($prompt, $systemMessage);
         
         return $this->parseAIResponse($response, $params);
     }
@@ -105,17 +107,23 @@ class AIService
      * Call OpenAI API
      * 
      * @param string $prompt
+     * @param string|null $systemMessage Custom system message (optional)
      * @return string JSON response
      * @throws \Exception
      */
-    private function callAI(string $prompt): string
+    private function callAI(string $prompt, ?string $systemMessage = null): string
     {
+        // Default universal system message
+        if ($systemMessage === null) {
+            $systemMessage = 'You are a helpful AI assistant for a local business and travel platform. Provide accurate, structured information to help users discover places and plan activities. Always respond with valid JSON when requested.';
+        }
+
         $data = [
             'model' => $this->model,
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => 'You are an expert travel planner. Create detailed, practical, and enjoyable itineraries. Always respond with valid JSON.'
+                    'content' => $systemMessage
                 ],
                 [
                     'role' => 'user',
@@ -225,7 +233,8 @@ class AIService
         $prompt .= "\nRespond with only a JSON array of destination names with country, like: [\"Paris, France\", \"Tokyo, Japan\"]";
 
         try {
-            $response = $this->callAI($prompt);
+            $systemMessage = 'You are a travel expert. Suggest destinations based on user preferences. Respond only with valid JSON.';
+            $response = $this->callAI($prompt, $systemMessage);
             $destinations = json_decode($response, true);
             
             if (is_array($destinations)) {
@@ -243,5 +252,109 @@ class AIService
             'Barcelona, Spain',
             'Bali, Indonesia'
         ];
+    }
+
+    /**
+     * Intelligently search for places based on natural language query
+     * 
+     * @param string $query Natural language search query from user
+     * @param array $context Additional context like user location, preferences, etc.
+     * @return array Search parameters and enhanced query
+     * @throws \Exception
+     */
+    public function enhanceSearch(string $query, array $context = []): array
+    {
+        if (empty($this->apiKey)) {
+            // Fallback to basic keyword extraction if AI not configured
+            return [
+                'what' => $query,
+                'where' => '',
+                'category' => null,
+                'tags' => [],
+                'enhanced_query' => $query
+            ];
+        }
+
+        $userLat = $context['lat'] ?? null;
+        $userLng = $context['lng'] ?? null;
+        $userLocation = $context['location'] ?? null;
+
+        $prompt = "Analyze this search query and extract structured search parameters:\n\n";
+        $prompt .= "Query: \"{$query}\"\n\n";
+        
+        if ($userLocation) {
+            $prompt .= "User Location: {$userLocation}\n";
+        }
+
+        /** @var \Swidly\Core\Models\CategoryModel $model */
+        $model = Model::load('CategoryModel');
+        $categories = $model->getAll();
+
+        $categoryNames = array_map(fn($cat) => $cat->name, $categories);
+        
+        $prompt .= "Extract the following information:\n";
+        $prompt .= "1. What they're looking for (business type, name, cuisine, activity)\n";
+        $prompt .= "2. Where they want to search (city, neighborhood, area)\n";
+        $prompt .= "3. Category (" . implode(', ', $categoryNames) . ", etc.)\n";
+        $prompt .= "4. Relevant tags/keywords\n";
+        $prompt .= "5. Any preferences (price range, rating, open now, etc.)\n\n";
+        $prompt .= "Respond ONLY with valid JSON in this exact format:\n";
+        $prompt .= "{\n";
+        $prompt .= '  "what": "extracted business/activity name or type",\n';
+        $prompt .= '  "where": "extracted location/area",\n';
+        $prompt .= '  "category": "category name or null",\n';
+        $prompt .= '  "tags": ["tag1", "tag2"],\n';
+        $prompt .= '  "priceMin": null or number,\n';
+        $prompt .= '  "priceMax": null or number,\n';
+        $prompt .= '  "ratingMin": null or number,\n';
+        $prompt .= '  "openNow": true or false,\n';
+        $prompt .= '  "enhanced_query": "improved search terms for database search"\n';
+        $prompt .= "}\n";
+
+        try {
+            $systemMessage = 'You are a search query analyzer. Extract structured search parameters from natural language queries. Always respond with valid JSON only.';
+            $response = $this->callAI($prompt, $systemMessage);
+            
+            // Clean up response
+            $response = trim($response);
+            if (str_starts_with($response, '```json')) {
+                $response = preg_replace('/^```json\s*/s', '', $response);
+                $response = preg_replace('/\s*```$/s', '', $response);
+            } elseif (str_starts_with($response, '```')) {
+                $response = preg_replace('/^```\s*/s', '', $response);
+                $response = preg_replace('/\s*```$/s', '', $response);
+            }
+
+            $searchParams = json_decode($response, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception('Failed to parse AI search response: ' . json_last_error_msg());
+            }
+
+            // Ensure all expected keys exist with defaults
+            return [
+                'what' => $searchParams['what'] ?? $query,
+                'where' => $searchParams['where'] ?? '',
+                'category' => $searchParams['category'] ?? null,
+                'tags' => $searchParams['tags'] ?? [],
+                'priceMin' => $searchParams['priceMin'] ?? null,
+                'priceMax' => $searchParams['priceMax'] ?? null,
+                'ratingMin' => $searchParams['ratingMin'] ?? null,
+                'openNow' => $searchParams['openNow'] ?? false,
+                'enhanced_query' => $searchParams['enhanced_query'] ?? $query
+            ];
+
+        } catch (\Exception $e) {
+            error_log('AI search enhancement failed: ' . $e->getMessage());
+            
+            // Fallback to basic extraction
+            return [
+                'what' => $query,
+                'where' => '',
+                'category' => null,
+                'tags' => [],
+                'enhanced_query' => $query
+            ];
+        }
     }
 }
