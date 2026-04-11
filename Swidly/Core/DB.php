@@ -448,4 +448,10 @@ class DB
     {
         return $this->conn->lastInsertId();
     }
+
+    public static function quote($value): string
+    {
+        $db = self::getInstance();
+        return $db->conn->quote($value);
+    }
 }

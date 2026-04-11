@@ -31,6 +31,9 @@ class MakeCommand extends AbstractCommand
             case 'component':
                 $command = CommandFactory::create('component', $this->options);
                 break;
+            case 'theme':
+                $command = CommandFactory::create('theme', $this->options);
+                break;
             default:
                 throw new \InvalidArgumentException("Unknown action: $action");
         }
@@ -55,11 +58,11 @@ class MakeCommand extends AbstractCommand
     }
     public function getCommandDescription(): string 
     {
-        return 'Create a new model, controller, migration, or component';
+        return 'Create a new model, controller, migration, component, or theme';
     }
     public function getCommandUsage(): string 
     {
-        return 'make --name <name> --type <model|controller|migration|component>';
+        return 'make --name <name> --type <model|controller|migration|component|theme>';
     }
     public function getCommandOptions(): array 
     {

@@ -323,16 +323,34 @@ class Model
 
             if ($this->isNewRecord($data)) {
                 // Insert new record
-
-                $this->db->table($this->table)->insert($data);
-                $id = (int)$this->db->lastInsertId();
-                if (!$id) {
-                    throw new SwidlyException("Failed to insert new record");
+                
+                // Generate UUID if ID field is empty (for CHAR(36) primary keys)
+                if ($this->idField && property_exists($this, $this->idField)) {
+                    if (empty($data[$this->idField])) {
+                        $uuid = self::generateUuid();
+                        $data[$this->idField] = $uuid;
+                        $this->{$this->idField} = $uuid;
+                    }
                 }
 
-                // Update the ID in the current object if available
-                if ($this->idField && property_exists($this, $this->idField)) {
-                    $this->{$this->idField} = $id;
+                $result = $this->db->table($this->table)->insert($data);
+                
+                if (!$result) {
+                    throw new SwidlyException("Failed to insert new record");
+                }
+                
+                // For auto-increment primary keys, use lastInsertId
+                $lastId = $this->db->lastInsertId();
+                if ($lastId > 0) {
+                    $id = $lastId;
+                    if ($this->idField && property_exists($this, $this->idField)) {
+                        $this->{$this->idField} = $id;
+                    }
+                } elseif (isset($data[$this->idField])) {
+                    // For UUID or manually set IDs, use the ID from data
+                    $id = $data[$this->idField];
+                } else {
+                    throw new SwidlyException("Failed to insert new record: no ID available");
                 }
             } else {
                 if (empty($this->idField)) {
@@ -359,7 +377,7 @@ class Model
                     ->get();
             }
 
-            return $id ?? $this->idField;
+            return $id ?? $this->{$this->idField};
 
         } catch (\Throwable $e) {
             $context = [
@@ -463,10 +481,38 @@ class Model
      */
     private function isNewRecord(array $data): bool
     {
-        return empty($this->idField) ||
-            !isset($data[$this->idField]) ||
-            empty($data[$this->idField]) ||
-            (int)$data[$this->idField] === 0;
+        // No ID field defined means always new
+        if (empty($this->idField)) {
+            return true;
+        }
+
+        // ID field not set or empty means new record
+        if (!isset($data[$this->idField]) || empty($data[$this->idField])) {
+            return true;
+        }
+
+        // For numeric auto-increment IDs, 0 means new record
+        if (is_numeric($data[$this->idField]) && (int)$data[$this->idField] === 0) {
+            return true;
+        }
+
+        // For UUIDs or other string IDs, check if record exists in database
+        if (is_string($data[$this->idField])) {
+            try {
+                $exists = $this->db->table($this->table)
+                    ->select()
+                    ->where([$this->idField => $data[$this->idField]])
+                    ->limit(1)
+                    ->get();
+                
+                return empty($exists);
+            } catch (\Throwable $e) {
+                // If we can't check, assume it's new
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -717,5 +763,16 @@ class Model
         }
 
         return $properties;
+    }
+
+    public static function generateUuid(): string
+    {
+        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
     }
 }

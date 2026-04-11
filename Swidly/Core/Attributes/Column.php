@@ -14,8 +14,13 @@ class Column {
         public ?bool $unique = false,
         public ?bool $nullable = false,
         public ?bool $isPrimary = false,
-        public ?string $default = null,
+        public mixed $default = null,
         public ?string $mapping = null,
+        public ?bool $index = false,
+        public ?bool $fulltext = false,
+        public ?bool $autoIncrement = false,
+        public ?string $comment = null,
+        public ?string $after = null,
     ){}
 
     public function getType(): ?Types {
@@ -38,7 +43,7 @@ class Column {
         return $this->isPrimary;
     }
 
-    public function getDefault(): ?string {
+    public function getDefault(): mixed {
         return $this->default;
     }
 
@@ -67,7 +72,7 @@ class Column {
         $this->isPrimary = $isPrimary;
     }
 
-    public function setDefault(string $default): void {
+    public function setDefault(mixed $default): void {
         $this->default = $default;
     }
 
@@ -77,5 +82,45 @@ class Column {
 
     public function setMapping(string $mapping): void {
         $this->mapping = $mapping;
+    }
+
+    public function hasIndex(): ?bool {
+        return $this->index;
+    }
+
+    public function setIndex(bool $index): void {
+        $this->index = $index;
+    }
+
+    public function isFulltext(): ?bool {
+        return $this->fulltext;
+    }
+
+    public function setFulltext(bool $fulltext): void {
+        $this->fulltext = $fulltext;
+    }
+
+    public function isAutoIncrement(): ?bool {
+        return $this->autoIncrement;
+    }
+
+    public function setAutoIncrement(bool $autoIncrement): void {
+        $this->autoIncrement = $autoIncrement;
+    }
+
+    public function getComment(): ?string {
+        return $this->comment;
+    }
+
+    public function setComment(?string $comment): void {
+        $this->comment = $comment;
+    }
+
+    public function getAfter(): ?string {
+        return $this->after;
+    }
+
+    public function setAfter(?string $after): void {
+        $this->after = $after;
     }
 }

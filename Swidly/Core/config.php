@@ -14,7 +14,7 @@ if (file_exists('../db.php')) {
 return [
     'app' => [
         'title' => '',
-        'base_url' => '',
+        'base_url' => 'https://thaddeusbibbs.me/dev/swidly-framework/',
         'favicon' => '',
         'description' => '',
         'single_page' => false

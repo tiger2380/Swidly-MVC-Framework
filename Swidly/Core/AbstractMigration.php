@@ -33,6 +33,14 @@ abstract class AbstractMigration
         $this->plannedSql[] = DB::query($sql, $params);
     }
 
+    public function addColumn(string $table, string $column, string $type, bool $nullable = false, $default = null): void
+    {
+        $nullStr = $nullable ? 'NULL' : 'NOT NULL';
+        $defaultStr = $default !== null ? "DEFAULT '$default'" : '';
+        $sql = "ALTER TABLE `$table` ADD COLUMN `$column` $type $nullStr $defaultStr";
+        $this->addSql($sql);
+    }
+
     public function getSql(): array
     {
         return $this->plannedSql;

@@ -128,7 +128,16 @@ class ComponentAttributes
             return implode(' ', array_map([$this, 'escape'], $value));
         }
 
-        return htmlspecialchars((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $stringValue = (string) $value;
+        
+        // Don't escape if the value contains template syntax or PHP tags - will be processed later
+        if (strpos($stringValue, '<?') !== false || 
+            strpos($stringValue, '{{') !== false || 
+            strpos($stringValue, '{!!') !== false) {
+            return $stringValue;
+        }
+
+        return htmlspecialchars($stringValue, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     /**

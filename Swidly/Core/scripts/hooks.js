@@ -53,6 +53,9 @@ export function useState(initValue = null) {
         } else {
             _hooks[_idx] = newValue;
         }
+    };
+    
+    const value = _hooks[_idx];
     _idx++;
 
     return [value, setState];

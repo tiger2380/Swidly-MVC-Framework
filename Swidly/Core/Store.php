@@ -87,11 +87,11 @@ class Store
     {
         self::ensureSessionStarted();
 
-        if (!self::hasKey('csrf')) {
-            self::save('csrf', bin2hex(random_bytes(32)));
+        if (!self::hasKey('_csrf_token')) {
+            self::save('_csrf_token', bin2hex(random_bytes(32)));
         }
 
-        return $_SESSION['csrf'];
+        return $_SESSION['_csrf_token'];
     }
 
     /**
@@ -103,7 +103,7 @@ class Store
     public static function verifyCsrf(string $token): bool
     {
         self::ensureSessionStarted();
-        return hash_equals(self::get('csrf', ''), $token);
+        return hash_equals(self::get('_csrf_token', ''), $token);
     }
 
     /**
@@ -113,7 +113,7 @@ class Store
      */
     public static function regenerateCsrf(): void
     {
-        self::save('csrf', bin2hex(random_bytes(32)));
+        self::save('_csrf_token', bin2hex(random_bytes(32)));
     }
 
     /**
@@ -121,7 +121,59 @@ class Store
      */
     public static function deleteCsrf(): void
     {
-        self::delete('csrf');
+        self::delete('_csrf_token');
+    }
+
+    /**
+     * Generate a simple math captcha and store the answer in the session.
+     */
+    public static function generateCaptcha(): void
+    {
+        $a = random_int(1, 20);
+        $b = random_int(1, 20);
+        $answer = $a + $b;
+        $secret = self::getCaptchaSecret();
+        $hash = hash_hmac('sha256', (string) $answer, $secret);
+
+        self::save('_captcha_question', "What is {$a} + {$b}?");
+        self::save('_captcha_answer', $answer);
+        self::save('_captcha_hash', $hash);
+    }
+
+    /**
+     * Get or create a stable captcha HMAC secret (not tied to the CSRF token).
+     *
+     * @return string
+     */
+    private static function getCaptchaSecret(): string
+    {
+        self::ensureSessionStarted();
+        if (!self::hasKey('_captcha_secret')) {
+            self::save('_captcha_secret', bin2hex(random_bytes(32)));
+        }
+        return self::get('_captcha_secret');
+    }
+
+    /**
+     * Verify the submitted captcha answer against the session hash.
+     *
+     * @param  int|string  $answer  The user-submitted answer
+     * @param  string      $hash    The hash submitted with the form
+     * @return bool
+     */
+    public static function verifyCaptcha(int|string $answer, string $hash): bool
+    {
+        self::ensureSessionStarted();
+        $secret = self::getCaptchaSecret();
+        $expected = hash_hmac('sha256', (string) (int) $answer, $secret);
+        $valid = hash_equals($expected, $hash);
+
+        // Clear captcha after verification attempt
+        self::delete('_captcha_question');
+        self::delete('_captcha_answer');
+        self::delete('_captcha_hash');
+
+        return $valid;
     }
 
     /**

@@ -1,13 +1,11 @@
 <?php
-use PDO;
-use DOMXPath;
-use Exception;
-use DOMDocument;
+
 use \Swidly\Core;
 use Swidly\Core\File;
 use Swidly\Core\Model;
 use Swidly\Core\Store;
 use Swidly\Core\Swidly;
+use Swidly\Core\Request;
 use Swidly\Core\Response;
 
 /**
@@ -37,16 +35,29 @@ function asset(string $path, ?string $theme = null): string
     return $baseUrl . '/Swidly/themes/' . $themeName . '/assets/' . $path;
 }
 
+function public_asset(string $path): string
+{
+    if (filter_var($path, FILTER_VALIDATE_URL)) {
+        return $path;
+    }
+    
+    $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    $baseUrl = rtrim($baseUrl, '/');
+    $path = ltrim($path, '/');
+    return $baseUrl . '/public/' . $path;
+}
+
 /**
  * Start a new section.
  * 
  * @param string $section
+ * @param mixed $value
  * @return void
  */
-function section(string $section): void
+function section(string $section, $value = null): void
 {
     if (isset($GLOBALS['__view'])) {
-        $GLOBALS['__view']->section($section);
+        $GLOBALS['__view']->section($section, $value);
     }
 }
 
@@ -75,6 +86,43 @@ function yieldSection(string $section, string $default = ''): string
         return $GLOBALS['__view']->yield($section, $default);
     }
     return $default;
+}
+
+/**
+ * Alias for yieldSection - outputs section content.
+ * 
+ * @param string $section
+ * @param string $default
+ * @return string
+ */
+function slot(string $section, string $default = ''): string
+{
+    return yieldSection($section, $default);
+}
+
+/**
+ * Start capturing default content for a slot.
+ * 
+ * @param string $section
+ * @return void
+ */
+function startSlot(string $section): void
+{
+    if (isset($GLOBALS['__view'])) {
+        $GLOBALS['__view']->startSlot($section);
+    }
+}
+
+/**
+ * End capturing default content for a slot and output the section content or default.
+ * 
+ * @return void
+ */
+function endSlot(): void
+{
+    if (isset($GLOBALS['__view'])) {
+        echo $GLOBALS['__view']->endSlot();
+    }
 }
 
 function dump($input, $stop = false): void
@@ -276,7 +324,7 @@ function watermark_image($image, $watermark, $position = 'bottom-right') {
     }
 }
 
-function resize_image($image, $width, $height) {
+function resize_image($image, $width, $height, $output = null) {
     $filename = basename($image);
     $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
@@ -297,21 +345,19 @@ function resize_image($image, $width, $height) {
         switch($ext) {
             case 'jpg':
             case 'jpeg':
-                imagejpeg($destination, null, 100);
+                imagejpeg($destination, $output, 100);
+                break;
             case 'png':
                 imagesavealpha($destination, true);
-                imagepng($destination, null);
+                imagepng($destination, $output);
                 break;
             case 'gif':
-                imagegif($destination, null);
+                imagegif($destination, $output);
                 break;
             default:
                 return $filename;
                 break;
         }
-
-        imagedestroy($destination);
-        imagedestroy($original);
     } else {
         return false;
     }
@@ -360,9 +406,6 @@ function resizeImageWebP($image, $width, $height) {
             return $newImage;
         } catch(Exception $ex) {
             throw $ex;
-        } finally {
-            imagedestroy($destination);
-            imagedestroy($original);
         }
     } else {
         return false;
@@ -1345,30 +1388,94 @@ function route(string $name, array $params = [], string $baseUrl = ''): string
 }
 
 /**
- * Generate a URL for a specific controller action
+ * Get old input value from previous request
+ * 
+ * @param string|null $key Field name (null to get all old input)
+ * @param mixed $default Default value if not found
+ * @return mixed
  */
-function action(string $controller, string $action, array $params = [], string $baseUrl = ''): string
+function old(?string $key = null, mixed $default = ''): mixed
 {
-    // Get base URL from config if not provided
-    if (empty($baseUrl)) {
-        $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
 
-    // Ensure base URL ends with a slash
-    $baseUrl = rtrim($baseUrl, '/') . '/';
+    $oldInput = $_SESSION['_old_input'] ?? [];
 
-    // Generate the action URL
-    $actionPath = Swidly::getActionPath($controller, $action);
-    if (!$actionPath) {
-        throw new \InvalidArgumentException("Action '$controller@$action' not found");
+    if ($key === null) {
+        return $oldInput;
     }
 
-    // Add parameters to the action path
-    if (!empty($params)) {
-        $actionPath .= '?' . http_build_query($params);
+    $value = $oldInput[$key] ?? $default;
+    
+    // Clear old input after first retrieval
+    static $cleared = false;
+    if (!$cleared) {
+        register_shutdown_function(function() {
+            if (isset($_SESSION['_old_input'])) {
+                unset($_SESSION['_old_input']);
+            }
+            if (isset($_SESSION['_errors'])) {
+                unset($_SESSION['_errors']);
+            }
+        });
+        $cleared = true;
+    }
+    
+    return $value;
+}
+
+/**
+ * Get validation error for a field
+ * 
+ * @param string $field Field name
+ * @param bool $first Get only first error (default: true)
+ * @return string|array|null
+ */
+function error(string $field, bool $first = true): string|array|null
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
 
-    return $baseUrl . ltrim($actionPath, '/');
+    $errors = $_SESSION['_errors'] ?? [];
+    $fieldErrors = $errors[$field] ?? null;
+
+    if ($fieldErrors === null) {
+        return null;
+    }
+
+    return $first ? ($fieldErrors[0] ?? null) : $fieldErrors;
+}
+
+/**
+ * Get all validation errors
+ * 
+ * @return array
+ */
+function errors(): array
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    return $_SESSION['_errors'] ?? [];
+}
+
+/**
+ * Check if a field has validation errors
+ * 
+ * @param string $field Field name
+ * @return bool
+ */
+function hasError(string $field): bool
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $errors = $_SESSION['_errors'] ?? [];
+    return isset($errors[$field]) && !empty($errors[$field]);
 }
 
 /**
@@ -1402,4 +1509,215 @@ function parseLinks(string $text, array $attributes = []): string
             htmlspecialchars($matches[0])
         );
     }, $text);
+}
+
+function redirectBack() {
+    $response = new Response();
+    $response->redirectBack();
+}
+
+function csrf_token(): string {
+    return Store::csrf();
+}
+
+function config(string $key, $default = null) {
+    return Swidly::getConfig($key, $default);
+}
+
+function verifyWithGoogle($lat, $long, $placeName) {
+    $apiKey = config('google_maps_api_key');
+    if (empty($apiKey)) {
+        return false;
+    }
+
+    $url = "https://maps.googleapis.com/maps/api/geocode/json?latlng={$lat},{$long}&key={$apiKey}";
+
+    $response = Response::get($url);
+    if ($response['status'] !== 'OK') {
+        return json_encode([
+            'verified' => false,
+            'message' => 'Failed to connect to Google Maps API',
+        ]);
+    }
+    
+    $results = $response['results'] ?? [];
+
+    if (empty($results)) {
+        return json_encode([
+            'verified' => false,
+            'message' => 'No results found for the given coordinates',
+        ]);
+    }
+
+    $bestMatch = null;
+    $bestSimilarity = 80;
+
+    foreach ($results as $result) {
+        similar_text(strtolower($placeName), strtolower($result['name']), $percent);
+        if ($percent > $bestSimilarity) {
+            $bestSimilarity = $percent;
+            $bestMatch = $result;
+        }
+
+        if ($bestSimilarity >= 70) {
+            $details = getPlaceDetails($bestMatch['place_id'], $apiKey);
+
+            return json_encode([
+                'verified' => true,
+                'message' => 'Location verified successfully',
+                'address' => $bestMatch['formatted_address'],
+                'similarity' => $bestSimilarity,
+                'details' => $details,
+            ]);
+        }
+    }
+
+    return json_encode([
+        'verified' => false,
+        'message' => 'Location verification failed',
+    ]);
+}
+
+function getPlaceDetails($placeId, $apiKey) {
+    $url = "https://maps.googleapis.com/maps/api/place/details/json?place_id={$placeId}&key={$apiKey}";
+    $response = Response::get($url);
+    if ($response['status'] !== 200) {
+        return null;
+    }
+
+    $data = json_decode($response['data'], true);
+    return $data['result'] ?? null;
+}
+
+function activeLink(?string $page = null): void {
+    $result = '';
+    $request = Request::getInstance();
+    
+    $currentPath = $request->get('path') ?? null;
+    error_log('Current Path: ' . $currentPath);
+    if (isset($page) && $page === $currentPath) {
+        $result = ' active';
+    }
+
+    echo $result;
+}
+
+function getGreetingOfDay($timestamp = null): string
+{
+    if ($timestamp === null) {
+        $timestamp = gmdate('Y-m-d H:i:s');
+    }
+
+    $local = fromUtc($timestamp, Store::get('timezone', 'UTC'));
+
+    $hour = (int)date('H', strtotime($local));
+
+    if ($hour >= 5 && $hour < 12) return 'morning';
+    if ($hour >= 12 && $hour < 17) return 'afternoon';
+    if ($hour >= 17 && $hour < 22) return 'evening';
+    return 'late night';
+}
+
+/**
+ * Get the currently authenticated user
+ * 
+ * @return mixed|null The authenticated user model or null
+ */
+function auth()
+{
+    return \Swidly\Middleware\AuthMiddleware::user();
+}
+
+/**
+ * Get the currently authenticated user's ID
+ * 
+ * @return string|null The user ID or null
+ */
+function authId(): ?string
+{
+    return \Swidly\Middleware\AuthMiddleware::getUserId();
+}
+
+/**
+ * Check if user is authenticated
+ * 
+ * @return bool
+ */
+function isAuth(): bool
+{
+    return \Swidly\Middleware\AuthMiddleware::check();
+}
+
+/**
+ * Get current UTC datetime
+ * 
+ * @param string $format Format string (default: 'Y-m-d H:i:s')
+ * @return string Current UTC datetime
+ */
+function utcNow(string $format = 'Y-m-d H:i:s'): string
+{
+    return gmdate($format);
+}
+
+/**
+ * Get current UTC timestamp
+ * 
+ * @return int Unix timestamp
+ */
+function utcTimestamp(): int
+{
+    return time();
+}
+
+/**
+ * Convert local datetime to UTC
+ * 
+ * @param string $datetime Local datetime string
+ * @param string|null $timezone Source timezone (default: server timezone)
+ * @return string UTC datetime
+ */
+function toUtc(string $datetime, ?string $timezone = null): string
+{
+    $tz = $timezone ?: date_default_timezone_get();
+    $dt = new DateTime($datetime, new DateTimeZone($tz));
+    $dt->setTimezone(new DateTimeZone('UTC'));
+    return $dt->format('Y-m-d H:i:s');
+}
+
+/**
+ * Convert UTC datetime to local timezone
+ * 
+ * @param string $utcDatetime UTC datetime string
+ * @param string $timezone Target timezone
+ * @return string Local datetime
+ */
+function fromUtc(string $utcDatetime, string $timezone): string
+{
+    $dt = new DateTime($utcDatetime, new DateTimeZone('UTC'));
+    $dt->setTimezone(new DateTimeZone($timezone));
+    return $dt->format('Y-m-d H:i:s');
+}
+
+/**
+ * Format a datetime for display in user's timezone
+ * 
+ * @param string $utcDatetime UTC datetime string
+ * @param string $timezone User's timezone
+ * @param string $format Display format (default: 'M d, Y H:i')
+ * @return string Formatted datetime
+ */
+function formatUserTime(string $utcDatetime, string $timezone, string $format = 'M d, Y H:i'): string
+{
+    $dt = new DateTime($utcDatetime, new DateTimeZone('UTC'));
+    $dt->setTimezone(new DateTimeZone($timezone));
+    return $dt->format($format);
+}
+
+function hasSuccess(string $key) {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $success = $_SESSION['_success'] ?? [];
+    return isset($success[$key]) && !empty($success[$key]);
 }

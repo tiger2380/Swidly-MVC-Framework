@@ -8,6 +8,9 @@ use Swidly\Core\Commands\ModelCommand;
 use Swidly\Core\Commands\MigrationCommand;
 use Swidly\Core\Commands\ControllerCommand;
 use Swidly\Core\Commands\ComponentCommand;
+use Swidly\Core\Commands\ThemeCommand;
+use Swidly\Core\Commands\AdminCommand;
+use Swidly\Core\Commands\BookingCommand;
 
 class CommandFactory
 {
@@ -20,6 +23,9 @@ class CommandFactory
             'controller' => new ControllerCommand($options),
             'migration' => new MigrationCommand($options),
             'component' => new ComponentCommand($options),
+            'theme' => new ThemeCommand($options),
+            'admin' => new AdminCommand($options),
+            'booking' => new BookingCommand($options),
             default => throw new \InvalidArgumentException("Unknown command type: $type")
         };
     }

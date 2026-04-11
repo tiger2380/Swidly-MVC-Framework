@@ -45,6 +45,20 @@ class View
     protected ?string $currentSection = null;
 
     /**
+     * The layout to extend.
+     *
+     * @var string|null
+     */
+    protected ?string $extendsLayout = null;
+
+    /**
+     * The current slot being captured.
+     *
+     * @var string|null
+     */
+    protected ?string $currentSlot = null;
+
+    /**
      * The stacks (push sections) data.
      *
      * @var array
@@ -69,6 +83,12 @@ class View
 
     protected bool $isChild = false;
 
+    protected array $directiveStackPlaceholders = [];
+
+    protected string $finalContent = '';
+    protected array $allData = [];
+    protected array $contents = [];
+
     /**
      * Create a new view instance.
      */
@@ -77,7 +97,7 @@ class View
         $this->instanceId = uniqid('view_', true);
         $this->compiler = new ComponentCompiler();
         $this->safeIncludePaths = [Swidly::theme()['base'] . '/views/'];
-        
+        $this->directiveStackPlaceholders = [];
         // Make view instance globally accessible
         $GLOBALS['__view'] = $this;
     }
@@ -136,10 +156,9 @@ class View
      *
      * @param  string  $view
      * @param  array  $data
-     * @return string
      */
-    public function render(string $view, array $data = []): string
-    {
+    public function render(string $view, array $data = [])
+    {;
         $this->with($data);
 
         $viewPath = $this->findView($view); 
@@ -159,6 +178,26 @@ class View
             $contents = '';
         }
 
+        // Check if this view extends a layout
+        if ($this->extendsLayout !== null) {
+            $layoutPath = $this->findView($this->extendsLayout);
+            if (!$layoutPath) {
+                throw new SwidlyException("Layout [{$this->extendsLayout}] not found.");
+            }
+            
+            // Reset extends to prevent infinite loop
+            $this->extendsLayout = null;
+            
+            // Render the layout (which will have access to the sections we just defined)
+            ob_start();
+            require $layoutPath;
+            $contents = ob_get_clean();
+            
+            if ($contents === false) {
+                $contents = '';
+            }
+        }
+
         // Recursively compile components and parse directives to handle nested components
         $maxIterations = 10; // Prevent infinite loops
         $iteration = 0;
@@ -166,28 +205,27 @@ class View
 
         while ($contents !== $previousContent && $iteration < $maxIterations) {
             $previousContent = $contents;
-        
+
             // Compile components (which may output @push/@stack directives)
             $contents = $this->compiler->compile($contents);
-
-            // Parse directives (including converting @stack to placeholders and @push to PHP code)
-            // This ensures any directives from components are properly parsed
-            $contents = $this->parseDirectives($contents);
-
             $iteration++;
         }
-        
-        // Parse includes
-        $parsed = $this->parseIncludes($contents);
 
         // After evaluation, all @push directives have been executed and stacks are populated
         // Now replace stack placeholders with actual content
-        $finalContent = $this->replaceStackPlaceholders($parsed);
-
+        $this->getLanguage();
         // Evaluate PHP expressions (this executes @push directives, populating stacks)
-        $evaluated = $this->evaluatePhpExpressions($finalContent);
+        if (!$this->isChild) {
+            $this->data = array_merge($this->data, ...array_column($GLOBALS['__view']->contents, 'data'));
+            $contents = $this->parseDirectives($contents);
+            $contents = $this->evaluatePhpExpressions($contents);
+            $contents = $this->replaceYieldPlaceholders($contents);
 
-        return $evaluated;
+            return $this->replaceStackPlaceholders($contents);
+        } else {
+            $GLOBALS['__view']->contents[] = ['content' => $contents, 'data' => get_defined_vars()['data'] ?? $this->data];
+            return $contents;
+        }
     }
 
     /**
@@ -200,24 +238,17 @@ class View
      * @return string
      */
     protected function parsePhpExpressions(string $content): string
-    {
+    {        
         // Remove template comments {{-- comment --}}
         $content = preg_replace('/\{\{--.*?--\}\}/s', '', $content);
-
-        // Replace yield() calls with yieldSection() since yield is a reserved keyword
-        $content = preg_replace_callback(
-            '/\byield\s*\(/i',
-            function ($matches) {
-                return 'yieldSection(';
-            },
-            $content
-        );
 
         // Parse unescaped expressions {!! expression !!} (raw output, no escaping)
         $content = preg_replace_callback(
             '/\{!!\s*(.+?)\s*!!\}/s',
             function ($matches) {
                 $expression = trim($matches[1]);
+                // Decode HTML entities that may have been encoded earlier
+                $expression = html_entity_decode($expression, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 return "<?= {$expression}; ?>";
             },
             $content
@@ -228,6 +259,8 @@ class View
             '/\{\{\s*(.+?)\s*\}\}/s',
             function ($matches) {
                 $expression = trim($matches[1]);
+                // Decode HTML entities that may have been encoded earlier
+                $expression = html_entity_decode($expression, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 return "<?= htmlspecialchars({$expression}, ENT_QUOTES, 'UTF-8'); ?>";
             },
             $content
@@ -237,23 +270,64 @@ class View
     }
 
     /**
+     * Parse template expressions in an array recursively.
+     * Processes any string containing {{ }} or {!! !!} expressions.
+     *
+     * @param  array  $array
+     * @return array
+     */
+    public function parseArrayExpressions(array $array): array
+    {
+        foreach ($array as $key => $value) {
+            if (is_array($value)) {
+                // Recursively parse nested arrays
+                $array[$key] = $this->parseArrayExpressions($value);
+            } elseif (is_string($value) && (str_contains($value, '{{') || str_contains($value, '{!!'))) {
+                // Only parse strings that contain template expressions
+                $array[$key] = $this->parsePhpExpressions($value);
+            }
+        }
+        
+        return $array;
+    }
+
+    /**
+     * Evaluate PHP expressions in an array recursively.
+     * Processes strings containing PHP code tags.
+     *
+     * @param  array  $array
+     * @return array
+     */
+    public function evaluateArrayExpressions(array $array): array
+    {
+        foreach ($array as $key => $value) {
+            if (is_array($value)) {
+                // Recursively evaluate nested arrays
+                $array[$key] = $this->evaluateArrayExpressions($value);
+            } elseif (is_string($value) && str_contains($value, '<?')) {
+                // Only evaluate strings that contain PHP code
+                $array[$key] = $this->evaluatePhpExpressions($value);
+            }
+        }
+        
+        return $array;
+    }
+
+    /**
      * Compile and evaluate PHP expressions in content.
      *
      * @param  string  $content
      * @return string
      */
     protected function evaluatePhpExpressions(string $content): string
-    {
-        // Parse the template syntax to PHP
-        $phpContent = $this->parsePhpExpressions($content);
-
+    {        
         // Extract data to make it available
         extract($this->data);
-
         // Evaluate the PHP content
+
         ob_start();
         try {
-            eval('?>' . $phpContent);
+            eval('?>' . $content);
         } catch (\Throwable $e) {
             ob_end_clean();
             throw new SwidlyException("Template evaluation error: " . $e->getMessage());
@@ -314,7 +388,7 @@ class View
         if (!is_dir($componentsPath)) {
             return;
         }
-
+        
         $files = glob($componentsPath . '/*.php');
         
         foreach ($files as $file) {
@@ -326,7 +400,7 @@ class View
             // Build the full class name
             $namespace = $theme['namespace'] ?? 'Swidly\\themes\\' . basename($theme['base']);
             $className = $namespace . '\\components\\' . $fileName;
-            
+
             // Register the component if the class exists
             if (class_exists($className)) {
                 $this->component($alias, $className);
@@ -365,14 +439,30 @@ class View
     protected function getLanguage(): void
     {
         $allowedLangs = ['en', 'es']; // Add supported languages
-        $default_lang = (new Request())->get('lang', null, null, Swidly::getConfig('default_lang'));
-        
+        $request = new Request();
+        $langParam = $request->get('lang');
+
+        if ($langParam !== null && in_array($langParam, $allowedLangs, true)) {
+            // User explicitly switched language — save to session
+            Store::save('lang', $langParam);
+            $default_lang = $langParam;
+        } else {
+            // Check session, then fall back to config default
+            $default_lang = Store::get('lang', Swidly::getConfig('default_lang'));
+        }
+
         // Validate language code
         if (!in_array($default_lang, $allowedLangs, true)) {
             $default_lang = 'en'; // Fallback to English
         }
 
-        $lang_path = __DIR__ . "/../lang/{$default_lang}.json";
+        $themePath = Swidly::theme()['base'] ?? '';
+        $lang_path = $themePath . "/lang/{$default_lang}.json";
+
+        // Fall back to core lang folder if not found in theme
+        if (!file_exists($lang_path)) {
+            $lang_path = __DIR__ . "/../lang/{$default_lang}.json";
+        }
 
         if (!file_exists($lang_path)) {
             throw new SwidlyException("Language file not found for: {$default_lang}", 404);
@@ -396,6 +486,7 @@ class View
      * @param string $str Template string to parse
      * @return string Processed template string
      * @throws SwidlyException If included file path is invalid or file not found
+     * @deprecated Use components instead of includes
      */
     public function parseIncludes(string $str): string
     {
@@ -471,16 +562,171 @@ class View
     }
 
     /**
+     * Extract content between balanced parentheses
+     * @param string $str String starting after the opening parenthesis
+     * @param int $offset Offset to start searching from
+     * @return array ['content' => string, 'endPos' => int]
+     */
+    protected function extractBalancedParentheses(string $str, int $offset): array
+    {
+        $depth = 1;
+        $content = '';
+        $pos = $offset;
+        $inString = false;
+        $stringChar = null;
+        $escaped = false;
+
+        while ($pos < strlen($str) && $depth > 0) {
+            $char = $str[$pos];
+
+            // Handle escape sequences
+            if ($escaped) {
+                $content .= $char;
+                $escaped = false;
+                $pos++;
+                continue;
+            }
+
+            if ($char === '\\') {
+                $escaped = true;
+                $content .= $char;
+                $pos++;
+                continue;
+            }
+
+            // Handle string literals
+            if (($char === '"' || $char === "'") && !$inString) {
+                $inString = true;
+                $stringChar = $char;
+                $content .= $char;
+            } elseif ($char === $stringChar && $inString) {
+                $inString = false;
+                $stringChar = null;
+                $content .= $char;
+            } elseif (!$inString) {
+                // Only count parentheses outside of strings
+                if ($char === '(') {
+                    $depth++;
+                    $content .= $char;
+                } elseif ($char === ')') {
+                    $depth--;
+                    if ($depth > 0) {
+                        $content .= $char;
+                    }
+                } else {
+                    $content .= $char;
+                }
+            } else {
+                $content .= $char;
+            }
+
+            $pos++;
+        }
+
+        return ['content' => trim($content), 'endPos' => $pos];
+    }
+
+    /**
      * Parse template directives like @csrf
      * @param string $str Template string to parse
      * @return string Processed template string
      */
     protected function parseDirectives(string $str): string
     {
+        $str = $this->parsePhpExpressions($str);
         // Parse @csrf directive
         $str = preg_replace(
             '/@csrf\b/',
             '<input type="hidden" name="csrf" value="<?= \\Swidly\\Core\\Store::csrf() ?>">',
+            $str
+        );
+
+        // Parse @captcha directive - renders a math challenge that blocks form submission until correct
+        $str = preg_replace(
+            '/@captcha\b/',
+            '<?php \\Swidly\\Core\\Store::generateCaptcha(); ?>' .
+            '<div class="captcha-group" style="margin:0.5rem 0;">' .
+            '<label class="form-label" style="display:block;margin-bottom:0.25rem;">' .
+            '<?= htmlspecialchars(\\Swidly\\Core\\Store::get(\'_captcha_question\', \'\'), ENT_QUOTES, \'UTF-8\') ?></label>' .
+            '<input type="number" name="_captcha_answer" class="form-control" required autocomplete="off" ' .
+            'data-captcha-expected="<?= \\Swidly\\Core\\Store::get(\'_captcha_answer\') ?>" ' .
+            'style="max-width:120px;display:inline-block;" />' .
+            '<span class="captcha-status" style="margin-left:0.5rem;"></span>' .
+            '<input type="hidden" name="_captcha_hash" value="<?= \\Swidly\\Core\\Store::get(\'_captcha_hash\', \'\') ?>" />' .
+            '</div>' .
+            '<script>' .
+            '(function(){' .
+            'document.querySelectorAll(\'input[name="_captcha_answer"]\').forEach(function(input){' .
+            'if(input.dataset.captchaListenerAttached)return;' .
+            'input.dataset.captchaListenerAttached="1";' .
+            'var form=input.closest("form");' .
+            'var status=input.closest(".captcha-group").querySelector(".captcha-status");' .
+            'var expected=parseInt(input.dataset.captchaExpected,10);' .
+            'function check(){' .
+            'var val=parseInt(input.value,10);' .
+            'if(isNaN(val)){status.textContent="";return false;}' .
+            'if(val===expected){status.textContent="\u2713";status.style.color="green";return true;}' .
+            'status.textContent="\u2717";status.style.color="red";return false;' .
+            '}' .
+            'input.addEventListener("input",check);' .
+            'if(form){form.addEventListener("submit",function(e){' .
+            'if(!check()){e.preventDefault();input.focus();}' .
+            '});}' .
+            '});' .
+            '})();' .
+            '</script>',
+            $str
+        );
+
+        // Parse @extends directive for layout inheritance
+        $str = preg_replace_callback(
+            '/@extends\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/',
+            function ($matches) {
+                return '<?php $GLOBALS[\'__view\']->extend(\'' . addslashes($matches[1]) . '\'); ?>';
+            },
+            $str
+        );
+
+        $str = preg_replace_callback(
+            '/@section\s*\(\s*[\'"]([^\'"]+)[\'"]\s*(?:,\s*[\'"]([^\'"]*)[\'"])?\s*\)/',
+            function ($matches) {
+                $section = addslashes($matches[1]);
+                if (isset($matches[2])) {
+                    $value = addslashes($matches[2]);
+                    return '<?php $GLOBALS[\'__view\']->section(\'' . $section . '\', \'' . $value . '\'); ?>';
+                }
+                return '<?php $GLOBALS[\'__view\']->section(\'' . $section . '\'); ?>';
+            },
+            $str
+        );
+
+        $str = preg_replace(
+            '/@endsection\b/',
+            '<?php $GLOBALS[\'__view\']->endSection(); ?>',
+            $str
+        );
+
+        // Parse @yield block form: @yield('name') ... @endyield (content between is default)
+        // Uses [^@]*(?:@(?!yield\b|endyield\b)[^@]*)* to efficiently match content without backtracking issues
+        $str = preg_replace_callback(
+            '/@yield\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)([^@]*(?:@(?!yield\b|endyield\b)[^@]*)*)@endyield/s',
+            function ($matches) {
+                $section = addslashes($matches[1]);
+                $encoded = base64_encode($matches[2]);
+                return '__VIEW_YIELD_PLACEHOLDER__' . $section . '__BLOCK_DEFAULT__' . $encoded . '__';
+            },
+            $str
+        ) ?? $str;
+
+        // Parse @yield inline directive to output section content
+        $str = preg_replace_callback(
+            '/@yield\s*\(\s*[\'"]([^\'"]+)[\'"](?:\s*,\s*[\'"]([^\'"]*)[\'"])?\s*\)/',
+            function ($matches) {
+                $section = addslashes($matches[1]);
+                $default = isset($matches[2]) ? addslashes($matches[2]) : '';
+
+                return '__VIEW_YIELD_PLACEHOLDER__' . $section . '__DEFAULT__' . $default . '__';
+            },
             $str
         );
 
@@ -510,21 +756,38 @@ class View
         );
         $str = preg_replace('/@endguest\b/', '<?php endif; ?>', $str);
 
-        // Parse @if / @elseif / @else / @endif directives
-        $str = preg_replace_callback(
-            '/@if\s*\(\s*(.+?)\s*\)/',
-            function ($matches) {
-                return '<?php if (' . $matches[1] . '): ?>';
-            },
-            $str
-        );
-        $str = preg_replace_callback(
-            '/@elseif\s*\(\s*(.+?)\s*\)/',
-            function ($matches) {
-                return '<?php elseif (' . $matches[1] . '): ?>';
-            },
-            $str
-        );
+        // Parse @if / @elseif / @else / @endif directives with proper parentheses matching
+        $offset = 0;
+        while (preg_match('/@if\s*\(/s', $str, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            $matchStart = (int)$matches[0][1];
+            $matchLen = strlen($matches[0][0]);
+            $pos = $matchStart + $matchLen;
+            $result = $this->extractBalancedParentheses($str, $pos);
+            
+            // Replace from @if to the closing parenthesis
+            $replaceStart = $matchStart;
+            $replaceLen = $result['endPos'] - $matchStart;
+            $replacement = '<?php if (' . $result['content'] . '): ?>';
+            
+            $str = (string)substr_replace($str, $replacement, $replaceStart, $replaceLen);
+            $offset = $replaceStart + strlen($replacement);
+        }
+        
+        $offset = 0;
+        while (preg_match('/@elseif\s*\(/s', $str, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            $matchStart = (int)$matches[0][1];
+            $matchLen = strlen($matches[0][0]);
+            $pos = $matchStart + $matchLen;
+            $result = $this->extractBalancedParentheses($str, $pos);
+            
+            // Replace from @elseif to the closing parenthesis
+            $replaceStart = $matchStart;
+            $replaceLen = $result['endPos'] - $matchStart;
+            $replacement = '<?php elseif (' . $result['content'] . '): ?>';
+            
+            $str = (string)substr_replace($str, $replacement, $replaceStart, $replaceLen);
+            $offset = $replaceStart + strlen($replacement);
+        }
         $str = preg_replace('/@else\b/', '<?php else: ?>', $str);
         $str = preg_replace('/@endif\b/', '<?php endif; ?>', $str);
 
@@ -557,6 +820,18 @@ class View
             $str
         );
         $str = preg_replace('/@endforeach\b/', '<?php endforeach; ?>', $str);
+
+        // Parse @forelse / @empty / @endforelse directives  
+        $str = preg_replace_callback(
+            '/@forelse\s*\(\s*(.+)\s+as\s+(.+?)\s*\)/',
+            function ($matches) {
+                return '<?php if (!empty(' . trim($matches[1]) . ')): ?><?php foreach (' . trim($matches[1]) . ' as ' . trim($matches[2]) . '): ?>';
+            },
+            $str
+        );
+        // Match @empty only when NOT followed by parentheses (to avoid matching @empty($var))
+        $str = preg_replace('/@empty\b(?!\s*\()/', '<?php endforeach; ?><?php else: ?>', $str);
+        $str = preg_replace('/@endforelse\b/', '<?php endif; ?>', $str);
 
         // Parse @for / @endfor directives
         $str = preg_replace_callback(
@@ -627,6 +902,32 @@ class View
             $str
         );
 
+        // Parse @_e directive for language translation
+        $str = preg_replace_callback(
+            '/@_e\s*\(\s*[\'"]([^\'"]+)[\'"](?:\s*,\s*[\'"]([^\'"]*)[\'"])?\s*\)/',
+            function ($matches) {
+                $key = addslashes($matches[1]);
+                $default = isset($matches[2]) ? addslashes($matches[2]) : $key;
+                return '<?= htmlspecialchars($GLOBALS[\'__view\']->trans(\'' . $key . '\', \'' . $default . '\'), ENT_QUOTES, \'UTF-8\'); ?>';
+            },
+            $str
+        );
+
+        // Parse @slot / @endslot directives for default content blocks
+        $str = preg_replace_callback(
+            '/@slot\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)(.*?)@endslot/s',
+            function ($matches) {
+                $section = $matches[1];
+                $default = $matches[2];
+                // Use base64 encoding to safely pass content through string literal
+                $encoded = base64_encode($default);
+                return '<?php $GLOBALS[\'__view\']->startSlot(\'' . addslashes($section) . '\'); ?>' . 
+                       '<?= base64_decode(\'' . $encoded . '\'); ?>' . 
+                       '<?= $GLOBALS[\'__view\']->endSlot(); ?>';
+            },
+            $str
+        );
+
         // Parse @push / @endpush directives - extract content blocks first
         $str = preg_replace_callback(
             '/@push\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)(.*?)@endpush/s',
@@ -649,6 +950,8 @@ class View
             },
             $str
         );
+
+        
 
         return $str;
     }
@@ -675,10 +978,15 @@ class View
      * @param  string  $section
      * @return void
      */
-    public function section(string $section): void
+    public function section(string $section, $value = null): void
     {
         $this->currentSection = $section;
         ob_start();
+        if ($value !== null) {
+            echo $value;
+
+            $this->endSection();
+        }
     }
 
     /**
@@ -706,7 +1014,48 @@ class View
      */
     public function yield(string $section, string $default = ''): string
     {
-        return $this->sections[$section] ?? $default;
+        return trim($GLOBALS['__view']->sections[$section] ?? $default);
+    }
+
+    /**
+     * Set the layout that this view extends.
+     *
+     * @param  string  $layout
+     * @return void
+     */
+    public function extend(string $layout): void
+    {
+        $this->extendsLayout = $layout;
+    }
+
+    /**
+     * Start capturing default content for a slot.
+     *
+     * @param  string  $section
+     * @return void
+     */
+    public function startSlot(string $section): void
+    {
+        $this->currentSlot = $section;
+        ob_start();
+    }
+
+    /**
+     * End capturing default content for a slot and return the section content or default.
+     *
+     * @return string
+     */
+    public function endSlot(): string
+    {
+        if ($this->currentSlot === null) {
+            throw new SwidlyException('Cannot end slot without starting one.');
+        }
+
+        $default = ob_get_clean();
+        $section = $this->currentSlot;
+        $this->currentSlot = null;
+        
+        return $this->sections[$section] ?? ($default !== false ? $default : '');
     }
 
     /**
@@ -781,6 +1130,18 @@ class View
     }
 
     /**
+     * Get a translated string by key.
+     *
+     * @param  string  $key
+     * @param  string  $default
+     * @return string
+     */
+    public function trans(string $key, string $default = ''): string
+    {
+        return $this->data['lang'][$key] ?? $default;
+    }
+
+    /**
      * Replace stack placeholders with actual stack content.
      *
      * @param  string  $content
@@ -789,9 +1150,45 @@ class View
     protected function replaceStackPlaceholders(string $content): string
     {
         return preg_replace_callback(
-            '/___STACK_PLACEHOLDER_([^_]+)___/',
+            '/___STACK_PLACEHOLDER_(.+?)___/',
             function ($matches) {
                 return $this->isChild ? $matches[0] : $this->yieldPushContent($matches[1]);
+            },
+            $content
+        );
+    }
+
+    protected function replaceExpressionPlaceholders(string $content): string
+    {
+        return preg_replace_callback(
+            '/___EXPRESSION_[^_]+___/',
+            function ($matches) {
+                return $this->directiveStackPlaceholders[$matches[0]] ?? '';
+            },
+            $content
+        );
+    }
+
+    protected function replaceYieldPlaceholders(string $content): string
+    {
+        // Replace block-form yield placeholders (base64-encoded default content)
+        $content = preg_replace_callback(
+            '/__VIEW_YIELD_PLACEHOLDER__(.+?)__BLOCK_DEFAULT__(.+?)__/',
+            function ($matches) {
+                $section = $matches[1];
+                $default = base64_decode($matches[2]);
+                return $this->yield($section, $default);
+            },
+            $content
+        );
+
+        // Replace inline yield placeholders
+        return preg_replace_callback(
+            '/__VIEW_YIELD_PLACEHOLDER__(.+?)__DEFAULT__(.*?)__/',
+            function ($matches) {
+                $section = $matches[1];
+                $default = $matches[2];
+                return $this->yield($section, $default);
             },
             $content
         );

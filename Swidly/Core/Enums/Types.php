@@ -15,4 +15,9 @@ enum Types: string {
     case TIMESTAMP = 'timestamp';
     case LONGTEXT = 'longtext';
     case BOOLEAN = 'boolean';
+    case CHAR = 'char';
+    case VARCHAR = 'varchar';
+    case INT = 'int';
+    case DATE = 'date';
+    case JSON = 'json';
 }

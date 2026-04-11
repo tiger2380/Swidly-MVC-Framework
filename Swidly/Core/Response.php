@@ -16,6 +16,7 @@ class Response
     private array $data = [];
     private string $content = '';
     private array $scriptUrls = [];
+    private string $jsonData = '';
 
     public function addHeader($name, $value): static
     {
@@ -26,9 +27,7 @@ class Response
 
     public function setHeader($name, $value): static
     {
-        $this->headers[$name] = [
-            (string) $value,
-        ];
+        $this->headers[$name] = (string) $value;
 
         return $this;
     }
@@ -38,16 +37,47 @@ class Response
             $url = $this->addReferrer($url, $referrer);
         }
 
-        if (Swidly::getConfig('app::base_url')) {
-            $url = Swidly::getConfig('app::base_url') . $url;
-        } else {
-            $url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . $url;
-        }
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            if (Swidly::getConfig('app::base_url')) {
+                $url = Swidly::getConfig('app::base_url') . $url;
+            } else {
+                $url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . $url;
+            }
+        }        
 
         if(count($this->messages) > 0) {
             $this->saveMessages();
         }
         header('LOCATION: '. $url);
+        exit();
+    }
+
+    public function redirectBack($fallback = '/'): void
+    {
+        $referer = $_SERVER['HTTP_REFERER'] ?? null;
+        
+        // If no referer or referer is from external site, use fallback
+        if (!$referer) {
+            $this->redirect($fallback);
+            return;
+        }
+
+        // Parse the referer to check if it's from the same host
+        $refererHost = parse_url($referer, PHP_URL_HOST);
+        $currentHost = $_SERVER['HTTP_HOST'] ?? '';
+
+        if ($refererHost !== $currentHost) {
+            // External referer, use fallback
+            $this->redirect($fallback);
+            return;
+        }
+
+        // Save messages before redirecting
+        if(count($this->messages) > 0) {
+            $this->saveMessages();
+        }
+
+        header('LOCATION: '. $referer);
         exit();
     }
 
@@ -151,7 +181,7 @@ class Response
         echo $this->content;
     }
 
-    public function json(): void
+    public function json(): string
     {
         // Clear output buffer
 		ob_clean();
@@ -175,8 +205,7 @@ class Response
 			header($header,true);
 		};
 
-		echo json_encode($R, JSON_PRETTY_PRINT);
-		die();
+		return json_encode($R, JSON_PRETTY_PRINT);
     }
 
     public static function setStatusCode(int $code): bool|int
@@ -209,5 +238,50 @@ class Response
             ],
         ]));
         return json_decode($response, true);
+    }
+
+    public function withStatus(int $code): static
+    {
+        $this->statusCode = $code;
+        return $this;
+    }
+
+    public function withJson(array $data): static
+    {
+        $this->setHeader('Content-Type', 'application/json; charset=UTF-8');
+        $this->setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        $this->setStatusCode($this->statusCode);
+        $this->content = json_encode($data, JSON_PRETTY_PRINT);
+        return $this;
+    }
+
+    public function addSuccess($subject, $message): static
+    {
+        if (!is_string($subject)) {
+            throw new \InvalidArgumentException('Subject must be a string');
+        }
+
+        if (!is_string($message)) {
+            throw new \InvalidArgumentException('Message must be a string');
+        }
+
+        if (isset($this->messages[$subject])) {
+            throw new \InvalidArgumentException('Subject already exists');
+        }
+
+        
+        $_SESSION['_success'][$subject] = $message;
+
+        return $this;
+    }
+
+    public function __toString()
+    {
+        foreach($this->headers as $type => $value){
+
+			header("$type: $value", true);
+		};
+
+		return $this->content;
     }
 }

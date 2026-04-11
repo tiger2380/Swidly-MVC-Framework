@@ -1,7 +1,7 @@
 
 <x-header />
 <?php foreach($blogs as $blog): ?>
-    <a href="<?= route('blog-post', ['slug' => $blog->slug]) ?>"><?= $blog->title ?></a>
+    <a href="<?= route('blog.post', ['slug' => $blog->slug]) ?>"><?= $blog->title ?></a>
 <?php endforeach; ?>
 <hr/>
 <h3>Add New Post</h3>

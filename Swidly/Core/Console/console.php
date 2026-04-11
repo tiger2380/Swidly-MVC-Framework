@@ -94,7 +94,7 @@ STR;
     }
 
     private function handleCommand(string $action, string $method): void {
-        if (!in_array($action, ['route', 'migration', 'migrate', 'make', 'list'])) {
+        if (!in_array($action, ['route', 'migration', 'migrate', 'make', 'list', 'admin', 'booking'])) {
             throw new \InvalidArgumentException("Unknown action: $action");
         }
 
@@ -110,22 +110,6 @@ STR;
         $command = CommandFactory::create($action, $options);
 
         $command->execute();
-    }
-    
-    private function createRoute(): void {
-        if (!isset($this->args[1], $this->args[2])) {
-            throw new \InvalidArgumentException("Route name and path are required");
-        }
-
-        $name = $this->args[1];
-        $path = $this->args[2];
-        $param = $this->buildRouteParameter();
-        
-        $routeContent = sprintf(self::ROUTE_TEMPLATE, $path, $param, ucfirst($name), $this->theme['name']);
-        $routePath = $this->getRoutePath();
-
-        formatPrintLn(['cyan', 'bold'], "Creating route...");
-        file_put_contents($routePath, $routeContent, FILE_APPEND);
     }
 
     private function buildRouteParameter(): string {

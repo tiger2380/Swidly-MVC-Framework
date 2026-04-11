@@ -154,6 +154,10 @@ class Swidly {
         return $this;
     }
 
+    public static function setRouteName(string $prefix, string $name): void {
+        self::$routeNames[$name] = stripQuestionMarks($prefix);
+    }
+
     /**
      * @param Closure|string $middleware
      * @return $this
@@ -231,7 +235,7 @@ class Swidly {
                 foreach($paths as $path) {
                     $this->next = $groupPrefix.$path;
                     if(isset($groupPrefix) && !empty($groupPrefix)) {
-                        $this->name($groupPrefix.'-'.$routeName);
+                        $this->name($groupPrefix.'.'.$routeName);
                     } else {
                         $this->name($routeName);
                     }
@@ -239,7 +243,7 @@ class Swidly {
             } else {
                 $this->next = $groupPrefix.$paths;
                 if(isset($groupPrefix) && !empty($groupPrefix)) {
-                    $this->name($groupPrefix.'-'.$routeName);
+                    $this->name($groupPrefix.'.'.$routeName);
                 } else {
                     $this->name($routeName);
                 }
@@ -314,13 +318,17 @@ class Swidly {
         }
 
         try {
-            $attributes = $method->getAttributes(Middleware::class);
+            $classAttributes = $method->getDeclaringClass()->getAttributes(Middleware::class);
+            $methodAttributes = $method->getAttributes(Middleware::class);
+            $attributes = array_merge($classAttributes, $methodAttributes);
         } catch (\Exception $e) {
             // Handle the exception appropriately
             return;
         }
 
         if (\count($attributes) > 0) {
+            $registeredCallbacks = [];
+
             foreach ($attributes as $attribute) {
                 try {
                     $instance = $attribute->newInstance();
@@ -330,6 +338,12 @@ class Swidly {
                 }
 
                 $callback = $instance->callback;
+
+                if (isset($registeredCallbacks[$callback])) {
+                    continue;
+                }
+
+                $registeredCallbacks[$callback] = true;
 
                 try {
                     if (is_array($paths)) {
@@ -424,6 +438,7 @@ class Swidly {
         }
 
         $controllers = array_diff(scandir($controllerPath), array('.', '..'));
+
         foreach ($controllers as $controllerFile) {
             $filename = pathinfo($controllerFile, PATHINFO_FILENAME);
             if (!preg_match('/^[A-Za-z0-9_]+$/', $filename)) {
@@ -542,6 +557,13 @@ class Swidly {
     }
 
     /**
+     * Get the base path of the application
+     */
+    public static function getBasePath(): string {
+        return dirname(__DIR__, 2);
+    }
+
+    /**
      * Custom error handler
      */
     public function errorHandler($errno, $errstr, $errfile, $errline): bool {
@@ -640,12 +662,12 @@ class Swidly {
         
         if (!empty($data['debugMode']) && !empty($data['errorMessage'])) {
             echo '<div style="background:#fff;padding:20px;margin:20px auto;max-width:800px;text-align:left;border:1px solid #ddd;">';
-            echo '<strong>Error:</strong> ' . htmlspecialchars($data['errorMessage']);
+            echo '<strong>Error:</strong> ' . htmlspecialchars((string)$data['errorMessage']);
             if (!empty($data['errorFile'])) {
-                echo '<br><strong>File:</strong> ' . htmlspecialchars($data['errorFile']);
+                echo '<br><strong>File:</strong> ' . htmlspecialchars((string)$data['errorFile']);
             }
             if (!empty($data['errorLine'])) {
-                echo '<br><strong>Line:</strong> ' . htmlspecialchars($data['errorLine']);
+                echo '<br><strong>Line:</strong> ' . htmlspecialchars((string)$data['errorLine']);
             }
             echo '</div>';
         }

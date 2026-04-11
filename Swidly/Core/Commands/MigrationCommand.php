@@ -5,7 +5,7 @@ namespace Swidly\Core\Commands;
 use Swidly\Core\Attributes\Column;
 use Swidly\Core\Attributes\Table;
 use Swidly\Core\DB;
-use Swidly\Core\Database\SqlBuilder;
+use Swidly\Core\Database\Schema;
 
 class MigrationCommand extends AbstractCommand 
 {
@@ -43,7 +43,7 @@ STR;
         $theme = $this->options['theme'] ?? [];
         $options = $this->options['options'] ?? [];
         $args = $this->options['args'] ?? [];
-        $filename = $args[1] ?? '';
+        $filename = $args[0] ?? '';
 
         try {
             switch($name) {
@@ -294,7 +294,7 @@ STR;
         if (!is_readable($migrationFile)) {
             throw new \RuntimeException("Migration file is not readable: $migrationFile");
         }
-
+        var_dump($migrationFile);
         try {
             include_once $migrationFile;
         } catch (\Exception $e) {
@@ -503,6 +503,19 @@ STR;
             throw new \InvalidArgumentException("Invalid table name: $tableName");
         }
 
+        // First, check if table exists
+        try {
+            $checkSql = "SHOW TABLES LIKE '{$tableName}'";
+            $tableExists = DB::query($checkSql);
+            if (!$tableExists || empty($tableExists->fetchAll())) {
+                // Table doesn't exist, return empty schema
+                return [];
+            }
+        } catch (\PDOException $e) {
+            // If we can't check, assume table doesn't exist
+            return [];
+        }
+
         $schema = [];
         $sql = "SHOW COLUMNS FROM `{$tableName}`";
         
@@ -533,7 +546,9 @@ STR;
             }
         } catch (\PDOException $e) {
             // Table doesn't exist or other database error
-            if (strpos($e->getMessage(), "doesn't exist") !== false) {
+            if (strpos($e->getMessage(), "doesn't exist") !== false || 
+                strpos($e->getMessage(), "Table") !== false ||
+                strpos($e->getMessage(), "42S02") !== false) {
                 return [];
             }
             // Re-throw other database errors
@@ -625,7 +640,6 @@ STR;
         $tableInstance = $entity->getAttributes(Table::class)[0]->newInstance();
         $tableName = $tableInstance->name;
         
-        $sqlBuilder = new SqlBuilder($tableName);
         $props = $entity->getProperties();
 
         // Get current schema
@@ -635,41 +649,171 @@ STR;
 
         // If table doesn't exist, create it
         if (empty($currentSchema)) {
-            foreach ($props as $prop) {
-                if ($attributes = $prop->getAttributes(Column::class)) {
-                    $sqlBuilder->addColumn($prop, $attributes[0]->newInstance());
+            $createSql = Schema::create($tableName, function($table) use ($props) {
+                foreach ($props as $prop) {
+                    if ($attributes = $prop->getAttributes(Column::class)) {
+                        $this->addColumnToBlueprint($table, $prop->getName(), $attributes[0]->newInstance());
+                    }
                 }
-            }
-            $addUpSqls[] = $sqlBuilder->getCreateTableSql();
-            $addDownSqls[] = $sqlBuilder->getDropTableSql();
+            });
+            $addUpSqls[] = '$this->addSql("' . addslashes($createSql) . '");';
+            $addDownSqls[] = '$this->addSql(Schema::drop(\'' . $tableName . '\'));';
             return;
         }
 
         // Table exists, process alterations
-        if (!empty($schemaDiff['new'])) {
-            foreach ($schemaDiff['new'] as $columnName => $columnDef) {
-                $addUpSqls[] = $sqlBuilder->getAddColumnSql($columnName, $columnDef);
-                $addDownSqls[] = $sqlBuilder->getDropColumnSql($columnName);
-            }
-        }
-
-        if (!empty($schemaDiff['modified'])) {
-            foreach ($schemaDiff['modified'] as $columnName => $changes) {
-                $addUpSqls[] = $sqlBuilder->getModifyColumnSql($columnName, $changes['to']);
-                $addDownSqls[] = $sqlBuilder->getModifyColumnSql($columnName, $changes['from']);
-            }
+        if (!empty($schemaDiff['new']) || !empty($schemaDiff['modified'])) {
+            $alterSql = Schema::alter($tableName, function($table) use ($schemaDiff) {
+                // Add new columns
+                if (!empty($schemaDiff['new'])) {
+                    foreach ($schemaDiff['new'] as $columnName => $columnDef) {
+                        $this->addColumnDefToBlueprint($table, $columnName, $columnDef);
+                    }
+                }
+                // Note: Modify columns would need MODIFY COLUMN support in TableBlueprint
+            });
+            $addUpSqls[] = '$this->addSql("' . addslashes($alterSql) . '");';
         }
 
         if (!empty($schemaDiff['removed'])) {
             foreach ($schemaDiff['removed'] as $columnName) {
-                // Get the original column definition from current schema for down migration
-                $originalDef = $currentSchema[$columnName];
-                $addUpSqls[] = $sqlBuilder->getDropColumnSql($columnName);
-                
-                // For down migration, we need to recreate the column
-                $addDownSqls[] = '$this->addSql(\'ALTER TABLE ' . $tableName . ' ADD COLUMN ' . $columnName . ' ' 
-                    . $originalDef['type'] . ($originalDef['null'] ? ' NULL' : ' NOT NULL') . "');\n";
+                $addUpSqls[] = '$this->addSql("ALTER TABLE `' . $tableName . '` DROP COLUMN `' . $columnName . '`");';
             }
+        }
+    }
+    
+    /**
+     * Add a column to TableBlueprint from Column attribute
+     */
+    private function addColumnToBlueprint($table, string $name, $columnAttr): void
+    {
+        $type = $columnAttr->type->value;
+        $length = $columnAttr->length;
+        
+        // Map type to TableBlueprint method
+        switch(strtolower($type)) {
+            case 'varchar':
+            case 'string':
+                $col = $table->varchar($name, $length ?? 255);
+                break;
+            case 'char':
+                $col = $table->char($name, $length ?? 36);
+                break;
+            case 'int':
+            case 'integer':
+                $col = $table->int($name);
+                break;
+            case 'bigint':
+                $col = $table->bigInteger($name);
+                break;
+            case 'text':
+                $col = $table->text($name);
+                break;
+            case 'longtext':
+                $col = $table->text($name); // TableBlueprint uses TEXT for both
+                break;
+            case 'decimal':
+                $col = $table->decimal($name, 10, 2);
+                break;
+            case 'boolean':
+                $col = $table->boolean($name);
+                break;
+            case 'timestamp':
+                $col = $table->timestamp($name);
+                break;
+            case 'datetime':
+                $col = $table->datetime($name);
+                break;
+            case 'date':
+                $col = $table->date($name);
+                break;
+            case 'json':
+                $col = $table->json($name);
+                break;
+            default:
+                $col = $table->string($name, $length ?? 255);
+                break;
+        }
+        
+        // Apply modifiers
+        if ($columnAttr->nullable) {
+            $col->nullable();
+        }
+        if ($columnAttr->default !== null) {
+            $col->default($columnAttr->default);
+        }
+        if ($columnAttr->comment) {
+            $col->comment($columnAttr->comment);
+        }
+        if ($columnAttr->unique) {
+            $col->unique();
+        }
+        if ($columnAttr->index) {
+            $col->index();
+        }
+    }
+    
+    /**
+     * Add a column definition to TableBlueprint from schema array
+     */
+    private function addColumnDefToBlueprint($table, string $name, array $columnDef): void
+    {
+        // Parse type from schema (e.g., "varchar(255)" -> "varchar", 255)
+        $type = $columnDef['type'];
+        $length = null;
+        
+        if (preg_match('/^(\w+)\((\d+)\)$/', $type, $matches)) {
+            $type = $matches[1];
+            $length = (int)$matches[2];
+        }
+        
+        // Map type to TableBlueprint method
+        switch(strtolower($type)) {
+            case 'varchar':
+                $col = $table->varchar($name, $length ?? 255);
+                break;
+            case 'char':
+                $col = $table->char($name, $length ?? 36);
+                break;
+            case 'int':
+                $col = $table->int($name);
+                break;
+            case 'bigint':
+                $col = $table->bigInteger($name);
+                break;
+            case 'text':
+                $col = $table->text($name);
+                break;
+            case 'decimal':
+                $col = $table->decimal($name, 10, 2);
+                break;
+            case 'tinyint':
+            case 'boolean':
+                $col = $table->boolean($name);
+                break;
+            case 'timestamp':
+                $col = $table->timestamp($name);
+                break;
+            case 'datetime':
+                $col = $table->datetime($name);
+                break;
+            case 'date':
+                $col = $table->date($name);
+                break;
+            case 'json':
+                $col = $table->json($name);
+                break;
+            default:
+                $col = $table->string($name, $length ?? 255);
+                break;
+        }
+        
+        // Apply modifiers
+        if ($columnDef['null']) {
+            $col->nullable();
+        }
+        if (isset($columnDef['default']) && $columnDef['default'] !== null) {
+            $col->default($columnDef['default']);
         }
     }
 }

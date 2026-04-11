@@ -32,5 +32,10 @@ return [
     ],
     'url' => '',
     'DEVELOPMENT_ENVIRONMENT' => true,
-    'session_name' => 'default_session'
+    'session_name' => 'default_session',
+    'sms' => [
+        'textlocal_api_key' => '',
+        'sender' => 'GEMGDE',
+        'default_country_code' => '',
+    ],
 ];

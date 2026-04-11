@@ -15,6 +15,8 @@ class Router
     public static array $routes = [];
     protected string $groupPrefix = '';
     protected array $options = [];
+    protected ?string $lastRouteType = null;
+    protected ?string $lastRoutePattern = null;
 
     public function __construct(
         private Request $request = new Request, 
@@ -61,7 +63,10 @@ class Router
     {
         $this->validateRoute($pattern, $callback);
         $this->addRouteFilters($pattern);
-        self::$routes['get'][$this->groupPrefix.$pattern] = $callback;
+        $fullPattern = $this->groupPrefix.$pattern;
+        self::$routes['get'][$fullPattern] = $callback;
+        $this->lastRouteType = 'get';
+        $this->lastRoutePattern = $fullPattern;
         return $this;
     }
 
@@ -69,7 +74,10 @@ class Router
     {
         $this->validateRoute($pattern, $callback);
         $this->addRouteFilters($pattern);
-        self::$routes['post'][$this->groupPrefix.$pattern] = $callback;
+        $fullPattern = $this->groupPrefix.$pattern;
+        self::$routes['post'][$fullPattern] = $callback;
+        $this->lastRouteType = 'post';
+        $this->lastRoutePattern = $fullPattern;
         return $this;
     }
 
@@ -77,7 +85,10 @@ class Router
     {
         $this->validateRoute($pattern, $callback);
         $this->addRouteFilters($pattern);
-        self::$routes['delete'][$this->groupPrefix.$pattern] = $callback;
+        $fullPattern = $this->groupPrefix.$pattern;
+        self::$routes['delete'][$fullPattern] = $callback;
+        $this->lastRouteType = 'delete';
+        $this->lastRoutePattern = $fullPattern;
         return $this;
     }
 
@@ -85,7 +96,21 @@ class Router
     {
         $this->validateRoute($pattern, $callback);
         $this->addRouteFilters($pattern);
-        self::$routes['put'][$this->groupPrefix.$pattern] = $callback;
+        $fullPattern = $this->groupPrefix.$pattern;
+        self::$routes['put'][$fullPattern] = $callback;
+        $this->lastRouteType = 'put';
+        $this->lastRoutePattern = $fullPattern;
+        return $this;
+    }
+
+    public function update(string $pattern, mixed $callback): self 
+    {
+        $this->validateRoute($pattern, $callback);
+        $this->addRouteFilters($pattern);
+        $fullPattern = $this->groupPrefix.$pattern;
+        self::$routes['update'][$fullPattern] = $callback;
+        $this->lastRouteType = 'update';
+        $this->lastRoutePattern = $fullPattern;
         return $this;
     }
 
@@ -111,6 +136,47 @@ class Router
         } finally {
             $this->groupPrefix = $previousPrefix;
         }
+        return $this;
+    }
+
+    /**
+     * Register routes scoped to a domain pattern.
+     * Use {param} placeholders for dynamic subdomains, e.g. '{user}.janeliz.meebeestudio.com'
+     * Matched parameters are set on the Request object.
+     */
+    public static function domain(string $domain, callable $callback): self 
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+
+        // Convert {param} placeholders to named regex groups
+        $pattern = preg_replace('/\{(\w+)\}/', '(?P<$1>[a-zA-Z0-9_-]+)', preg_quote($domain, '#'));
+        $pattern = str_replace('\\.', '.', $pattern); // un-escape dots after named groups are inserted
+
+        if (!preg_match('#^' . $pattern . '$#i', $host, $matches)) {
+            // Domain doesn't match — skip registering these routes
+            return new self();
+        }
+
+        $router = new self();
+
+        // Store matched subdomain parameters on the request
+        foreach ($matches as $key => $value) {
+            if (is_string($key)) {
+                $router->request->set($key, $value);
+            }
+        }
+
+        call_user_func($callback, $router);
+        return $router;
+    }
+
+    public function name(string $name): self 
+    {
+        if ($this->lastRoutePattern === null || $this->lastRouteType === null) {
+            return $this;
+        }
+
+        Swidly::setRouteName($this->lastRoutePattern, $name);
         return $this;
     }
 

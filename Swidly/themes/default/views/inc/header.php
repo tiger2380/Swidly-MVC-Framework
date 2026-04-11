@@ -26,7 +26,7 @@
                 <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('about') ?>" href="{{ route('about') }}">About</a>
                 </li>
                 <li class="nav-item">
-                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('blog') ?>" href="{{ route('blog-index') }}">Blog</a>
+                <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('blog') ?>" href="{{ route('blog.index') }}">Blog</a>
                 </li>
                 <li class="nav-item">
                 <a class="nav-link <?= \Swidly\Core\Swidly::activeLink('contact') ?>" href="{{ route('contact') }}">Contact</a>

@@ -13,6 +13,7 @@ use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Attributes\RouteGroup;
 use Swidly\Core\Factory\CommandFactory;
 use Swidly\Middleware\AuthMiddleware;
+use Swidly\Core\FlatDB; 
 
 /**
  * @throws SwidlyException
@@ -22,9 +23,13 @@ use Swidly\Middleware\AuthMiddleware;
 class BlogController extends Controller {
     #[Route(methods: ['GET'], path: '/', name: 'index')]
     public function Index($req, $res) {
-        $model = Model::load('BlogModel');
+        /*$model = Model::load('BlogModel');
 
-        $blogs = $model->findAll();
+        $blogs = $model->findAll();*/
+
+        $db = new FlatDB(Swidly::getBasePath() . '/data');
+        $blogs = $db->find('blogs');
+        $blogs = array_map(fn($blog) => (object)$blog, $blogs);
 
         return $this->render('blog', [
             'blogs' => $blogs
@@ -75,10 +80,27 @@ class BlogController extends Controller {
          * @var \Swidly\themes\default\models\BlogModel $blog
          */
         $blog = Model::load('BlogModel');
+        $db = new FlatDB(Swidly::getBasePath() . '/data');
 
         if ($req->isPost()) {
             $data = $req->getBody();
-            $blog->title = $data['title'];
+            $blog = $db->insert('blogs', [
+                'title' => $data['title'],
+                'content' => $data['content'],
+                'slug' => slugify($data['title']),
+                'createdAt' => date('Y-m-d H:i:s'),
+                'updatedAt' => date('Y-m-d H:i:s'),
+                'userId' => AuthMiddleware::getUserId() ?? -1,
+                'categoryId' => 1,
+                'status' => 1,
+                'views' => 0,
+                'likes' => 0,
+                'dislikes' => 0,
+                'comments' => null,
+                'shares' => 0
+            ]);
+
+            /*$blog->title = $data['title'];
             $blog->content = $data['content'];
             $blog->slug = $data['slug'] ?? slugify($data['title']);
             $blog->createdAt = date('Y-m-d H:i:s');
@@ -91,10 +113,11 @@ class BlogController extends Controller {
             $blog->dislikes = 0;
             $blog->comments = null;
             $blog->shares = 0;
-            $blog->save();
+            $blog->save();*/
 
             \Swidly\Core\Store::save('success', 'Post created successfully');
-            return $res->redirect('blog/'.$blog->slug);
+            //return $res->redirect('blog/'.$blog->slug);
+            return $res->redirect('blog'.'/'.$blog['slug']);
         }
 
         return $this->render('edit_post', [

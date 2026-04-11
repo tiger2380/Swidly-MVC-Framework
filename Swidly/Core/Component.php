@@ -56,7 +56,7 @@ abstract class Component
      *
      * @return string
      */
-    abstract public function render(): string;
+    abstract public function render();
 
     /**
      * Render the component as a string.
@@ -189,14 +189,14 @@ abstract class Component
 
     public function getProp(string $key, mixed $default = null): mixed
     {
-        if (!isset($this->attributes['__props'])) {
+        if (null === $this->attributes->get('__props')) {
             return $default;
         }
-        return $this->attributes['__props'][$key] ?? $default;
+        return $this->attributes->get('__props')[$key] ?? $default;
     }
 
     public function getProps(): array
     {
-        return $this->attributes['__props'] ?? [];
+        return $this->attributes->get('__props') ?? [];
     }
 }

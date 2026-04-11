@@ -131,23 +131,28 @@ class ComponentCompiler
             $attributesString = $matches['attributes'] ?? '';
             $attributes = $this->parseAttributes($attributesString, $context);
             $attributes['slot'] = isset($matches['slot']) ? trim($matches['slot']) : '';
-
+            
             // Get the component class
             $class = $this->resolveComponent($component);
+            
             if (!$class) {
                 throw new \RuntimeException("Component [{$component}] not found.");
             }
 
             // Create and render the component
-            $instance = new $class($attributes);
-            if (!($instance instanceof Component)) {
-                throw new SwidlyException("Class [{$class}] must extend the Component class.");
+            try {
+                $instance = new $class($attributes);
+                if (!($instance instanceof Component)) {
+                    throw new SwidlyException("Class [{$class}] must extend the Component class.");
+                }
+                $rendered = $instance->render();
+                
+                // Recursively compile any nested components in the rendered output
+                return $this->compile($rendered, $context);
+            } catch (\Throwable $e) {
+                error_log("Component compilation error for [{$component}]: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+                throw $e;
             }
-            ;
-            $rendered = $instance->render();
-            
-            // Recursively compile any nested components in the rendered output
-            return $this->compile($rendered, $context);
         }, $value);
     }
 
@@ -163,16 +168,15 @@ class ComponentCompiler
         $attributes = [];
         $props = [];
         
+        // More robust pattern that handles both quote types and nested content
         $pattern = '/
             (?<name>[\w\-:.@]+)
-            (
-                =
-                (?<value>
-                    \"[^\"]*\"
-                    |
-                    \\\'[^\\\']*\\\'
-                    |
-                    [^\s\"\\\'=<>]+
+            (?:
+                \s*=\s*
+                (?:
+                    "(?<dquote>(?:[^"\\\\]|\\\\.)*)"|
+                    \'(?<squote>(?:[^\'\\\\]|\\\\.)*)\'|
+                    (?<unquoted>[^\s>]+)
                 )
             )?
         /x';
@@ -180,19 +184,30 @@ class ComponentCompiler
         if (preg_match_all($pattern, $attributesString, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $rawName = $match['name'];
-                $value = $match['value'] ?? null;
+                // Get value from whichever quote style was used
+                // Check if key exists (not if value is non-empty) to handle empty strings correctly
+                // If both exist, prefer the one that's non-empty, otherwise use dquote
+                if (isset($match['dquote']) && isset($match['squote'])) {
+                    // Both matched - use the non-empty one
+                    $value = ($match['dquote'] !== '') ? $match['dquote'] : $match['squote'];
+                } elseif (isset($match['dquote'])) {
+                    $value = $match['dquote'];
+                } elseif (isset($match['squote'])) {
+                    $value = $match['squote'];
+                } else {
+                    $value = $match['unquoted'] ?? null;
+                }
 
                 // Handle @prop attributes separately
                 if (str_starts_with($rawName, '@prop')) {
                     // Extract the prop name from @prop:name or @prop(name)
                     if (preg_match('/@prop\(([^)]+)\)|@prop:(.+)/', $rawName, $propMatch)) {
-                        $propName = $propMatch[1] ?? $propMatch[2];
-                        
+                        $propName = $propMatch[2];
+
                         if ($value === null) {
                             $props[$propName] = true;
                         } else {
                             $cleanValue = trim($value, '\'"');
-                            
                             // Check if it's a variable reference (e.g., $variableName or $variable)
                             if (preg_match('/^\$(\w+)$/', $cleanValue, $varMatch)) {
                                 $varName = $varMatch[1];
@@ -201,7 +216,6 @@ class ComponentCompiler
                             // Check if it's a bound variable with : prefix (starts with :)
                             elseif (str_starts_with($cleanValue, ':')) {
                                 $cleanValue = substr($cleanValue, 1); // Remove the : prefix
-                                
                                 // Apply type coercion like regular bound attributes
                                 if (strcasecmp($cleanValue, 'null') === 0) {
                                     $props[$propName] = null;
@@ -244,8 +258,19 @@ class ComponentCompiler
                     continue;
                 }
 
-                // Trim surrounding quotes
-                $value = trim($value, '\'"');
+                // No need to trim quotes - already extracted by regex capture groups
+
+                // If bound, try to decode JSON first (for arrays/objects)
+                if ($bound && !empty($value) && ($value[0] === '{' || $value[0] === '[')) {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        error_log("Decoded JSON for {$name}: " . print_r($decoded, true));
+                        $attributes[$name] = $decoded;
+                        continue;
+                    } else {
+                        error_log("JSON decode failed for {$name}: " . json_last_error_msg() . " | Value: " . substr($value, 0, 100));
+                    }
+                }
 
                 // Coerce common literal types
                 if (strcasecmp($value, 'null') === 0) {
@@ -257,10 +282,6 @@ class ComponentCompiler
                 } elseif (is_numeric($value)) {
                     // preserve ints vs floats
                     $typed = (strpos($value, '.') !== false) ? (float) $value : (int) $value;
-                } elseif ($bound && ($value !== '' && ($value[0] === '{' || $value[0] === '['))) {
-                    // Try to decode JSON for bound structured values
-                    $decoded = json_decode($value, true);
-                    $typed = json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
                 } else {
                     $typed = $value;
                 }

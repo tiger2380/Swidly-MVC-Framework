@@ -1,0 +1,34 @@
+[
+    {
+        "title": "test 1",
+        "content": "test 2",
+        "slug": "test-1",
+        "createdAt": "2026-04-11 20:47:16",
+        "updatedAt": "2026-04-11 20:47:16",
+        "userId": -1,
+        "categoryId": 1,
+        "status": 1,
+        "views": 0,
+        "likes": 0,
+        "dislikes": 0,
+        "comments": null,
+        "shares": 0,
+        "_id": "5c574d267c23527a31b8ec9b"
+    },
+    {
+        "title": "anther flat title",
+        "content": "another flat message",
+        "slug": "anther-flat-title",
+        "createdAt": "2026-04-11 20:47:49",
+        "updatedAt": "2026-04-11 20:47:49",
+        "userId": -1,
+        "categoryId": 1,
+        "status": 1,
+        "views": 0,
+        "likes": 0,
+        "dislikes": 0,
+        "comments": null,
+        "shares": 0,
+        "_id": "c8dbc35717b43d1778e82a1f"
+    }
+]
