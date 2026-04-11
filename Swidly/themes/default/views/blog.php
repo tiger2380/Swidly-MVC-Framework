@@ -1,5 +1,5 @@
-
 <x-header />
+@section('title', 'Blog')
 <?php foreach($blogs as $blog): ?>
     <a href="<?= route('blog.post', ['slug' => $blog->slug]) ?>"><?= $blog->title ?></a>
 <?php endforeach; ?>
@@ -22,4 +22,4 @@
     <p><textarea name="content" placeholder="Post Content" required></textarea></p>
     <p><button type="submit">Create Post</button></p>
 </form>
-{@include 'inc/footer'}
+<x-footer />

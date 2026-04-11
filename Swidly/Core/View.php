@@ -693,9 +693,9 @@ class View
                 $section = addslashes($matches[1]);
                 if (isset($matches[2])) {
                     $value = addslashes($matches[2]);
-                    return '<?php $GLOBALS[\'__view\']->section(\'' . $section . '\', \'' . $value . '\'); ?>';
                 }
-                return '<?php $GLOBALS[\'__view\']->section(\'' . $section . '\'); ?>';
+                $GLOBALS['__view']->section($section, isset($value) ? $value : null);  
+                return '';
             },
             $str
         );
@@ -1001,7 +1001,7 @@ class View
         }
 
         $content = ob_get_clean();
-        $this->sections[$this->currentSection] = $content !== false ? $content : '';
+        $GLOBALS['__view']->sections[$this->currentSection] = $content !== false ? $content : '';
         $this->currentSection = null;
     }
 
@@ -1188,7 +1188,7 @@ class View
             function ($matches) {
                 $section = $matches[1];
                 $default = $matches[2];
-                return $this->yield($section, $default);
+                return $GLOBALS['__view']->yield($section, $default);
             },
             $content
         );

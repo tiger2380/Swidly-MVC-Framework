@@ -5,9 +5,9 @@
 <?php endif; ?>
 <form method="POST" action="">
     <input type="hidden" name="csrf" value="<?= \Swidly\Core\Store::csrf() ?>" />
-    <input type="hidden" name="slug" value="<?= $blog->slug ?>" />
-    <input type="text" name="title" value="<?= $blog->title ?>" />
-    <textarea name="content"><?= $blog->content ?></textarea>
+    <input type="hidden" name="slug" value="<?= $blog['slug'] ?>" />
+    <input type="text" name="title" value="<?= $blog['title'] ?>" />
+    <textarea name="content"><?= $blog['content'] ?></textarea>
     <button type="submit">Save</button>
 </form>
 <x-footer />

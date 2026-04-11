@@ -26,7 +26,7 @@ class Footer extends Component
      */
     public function render(): string
     {
-        $slot = $this->getAttribute('slot', '');
+        $slot = $this->getAttribute('slot', 'footer');
 
         return <<<HTML
         <div {$this->attributes}>{$slot}</div>

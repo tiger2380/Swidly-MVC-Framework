@@ -27,7 +27,7 @@ class Header extends Component
      */
     public function render(): string
     {
-        $view = new View();
+        $view = View::getInstance();
         $view->registerCommonComponents();
         $slot = $this->getAttribute('slot', '');
 
