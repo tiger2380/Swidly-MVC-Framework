@@ -1,5 +1,7 @@
 <?php
 
+use Swidly\Core\Store;
+
 $db_host = '';
 $db_name = '';
 $db_user = '';
@@ -11,10 +13,29 @@ if (file_exists('../db.php')) {
     require_once '../db.php';
 } 
 
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME'], 2), '/\\');
-$base_url = $scheme . '://' . $host . $scriptDir . '/';
+function url_origin( $s, $use_forwarded_host = false )
+{
+    $ssl      = ( ! empty( $s['HTTPS'] ) && $s['HTTPS'] == 'on' );
+    $sp       = strtolower( $s['SERVER_PROTOCOL'] );
+    $protocol = substr( $sp, 0, strpos( $sp, '/' ) ) . ( ( $ssl ) ? 's' : '' );
+    $port     = $s['SERVER_PORT'];
+    $port     = ( ( ! $ssl && $port=='80' ) || ( $ssl && $port=='443' ) ) ? '' : ':'.$port;
+    $host     = ( $use_forwarded_host && isset( $s['HTTP_X_FORWARDED_HOST'] ) ) ? $s['HTTP_X_FORWARDED_HOST'] : ( isset( $s['HTTP_HOST'] ) ? $s['HTTP_HOST'] : null );
+    $host     = isset( $host ) ? $host : $s['SERVER_NAME'] . $port;
+    return $protocol . '://' . $host;
+}
+
+function full_url( $s, $use_forwarded_host = false )
+{
+    return url_origin( $s, $use_forwarded_host ) . $s['REQUEST_URI'];
+}
+
+$base_url = full_url($_SERVER);
+if(Store::hasKey('base_url')) {
+    $base_url = Store::get('base_url');
+} else {
+    Store::save('base_url', $base_url);
+}
 
 return [
     'app' => [
@@ -35,7 +56,7 @@ return [
         'collation' => $db_collation,
         'prefix' => '',
     ],
-    'url' => '',
+    'url' => $base_url,
     'DEVELOPMENT_ENVIRONMENT' => true,
     'session_name' => 'default_session',
     'sms' => [

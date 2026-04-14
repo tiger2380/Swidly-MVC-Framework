@@ -494,7 +494,7 @@ class Swidly {
             $route = Swidly::$routeNames[$name];
 
             if(strlen($route) > 1) {
-                $route = rtrim($route, '/');
+                $route = trim($route, '/');
             }
             return Swidly::getConfig('url') . $route;
         } else {

@@ -2,11 +2,136 @@
 
 use \Swidly\Core;
 use Swidly\Core\File;
+use Swidly\Core\FlatDB;
 use Swidly\Core\Model;
 use Swidly\Core\Store;
 use Swidly\Core\Swidly;
 use Swidly\Core\Request;
 use Swidly\Core\Response;
+
+/**
+ * Get site content from FlatDB by _id
+ * @param string $id The content item _id
+ * @param string|null $field Optional specific field to return
+ * @param mixed $default Default value if not found
+ * @return mixed
+ */
+function siteContent(string $id, ?string $field = null, mixed $default = null): mixed
+{
+    static $cache = null;
+    if ($cache === null) {
+        $db = new FlatDB(Swidly::getBasePath() . '/data');
+        $all = $db->find('site_content');
+        $cache = [];
+        foreach ($all as $item) {
+            $cache[$item['_id']] = $item;
+        }
+    }
+
+    $item = $cache[$id] ?? null;
+    if (!$item) return $default;
+    if ($field !== null) return $item[$field] ?? $default;
+    return (object) $item;
+}
+
+/**
+ * Check if a site content section is visible
+ * @param string $id The content item _id
+ * @return bool
+ */
+function sectionVisible(string $id): bool
+{
+    $item = siteContent($id);
+    if (!$item) return true;
+    return ($item->visible ?? true) !== false;
+}
+
+/**
+ * Get theme setting
+ * @param string $key Theme property key
+ * @param string|null $default Default value
+ * @return string
+ */
+function themeColor(string $key, ?string $default = null): string
+{
+    return siteContent('site_theme', $key, $default) ?? $default ?? '';
+}
+
+/**
+ * Get the ordered section IDs for a page layout
+ * @param string $page The page name (e.g. 'home', 'about', 'contact')
+ * @return array Array of section _id strings
+ */
+function pageLayout(string $page): array
+{
+    $layout = siteContent('layout_' . $page);
+    if (!$layout || empty($layout->sections)) {
+        // Fallback: return all sections for this page from content
+        $db = new FlatDB(Swidly::getBasePath() . '/data');
+        $all = $db->find('site_content', ['type' => 'section', 'page' => $page]);
+        return array_map(fn($item) => $item['_id'], $all);
+    }
+    return (array) $layout->sections;
+}
+
+/**
+ * Map a section _id to its template type (e.g. 'home_hero' -> 'hero', 'home_practice' -> 'practice')
+ * @param string $sectionId The section content _id
+ * @return string The template type name
+ */
+function sectionTemplate(string $sectionId): string
+{
+    $item = siteContent($sectionId);
+    if ($item && !empty($item->section)) {
+        // Map section field to template file name
+        $map = [
+            'hero' => 'hero',
+            'about' => 'about',
+            'stats' => 'stats',
+            'stats_cards' => 'about_stats',
+            'practice_areas' => 'practice',
+            'practice' => 'practice',
+            'testimonials' => 'testimonials',
+            'projects' => 'projects',
+            'cta' => 'cta',
+            'team' => 'team',
+            'faq' => 'faq',
+            'contact_form' => 'contact_form',
+            'story' => 'about_story',
+            'mission' => 'about_mission',
+            'timeline' => 'about_timeline',
+            'leadership' => 'about_leadership',
+            'collaborate' => 'about_collaborate',
+        ];
+        return $map[$item->section] ?? $item->section;
+    }
+    // Fallback: strip page prefix (home_hero -> hero)
+    $parts = explode('_', $sectionId, 2);
+    return $parts[1] ?? $sectionId;
+}
+
+/**
+ * Render a page's sections dynamically based on layout
+ * @param string $page The page name
+ */
+function renderPageSections(string $page): void
+{
+    $sections = pageLayout($page);
+    $viewsBase = Swidly::theme()['base'] . '/views/sections/';
+
+    foreach ($sections as $sectionId) {
+        $template = sectionTemplate($sectionId);
+        // Try page-specific template first (e.g. about_hero.php), then generic (e.g. hero.php)
+        $file = $viewsBase . $sectionId . '.php';
+        if (!file_exists($file)) {
+            $file = $viewsBase . $template . '.php';
+        }
+        if (file_exists($file)) {
+            $__sectionId = $sectionId;
+            include $file;
+        }
+    }
+}
 
 /**
  * Generate a URL for an asset file
@@ -1339,14 +1464,6 @@ function fullUrl(string $path, string $baseUrl = ''): string
  */
 function route(string $name, array $params = [], string $baseUrl = ''): string
 {
-    // Get base URL from config if not provided
-    if (empty($baseUrl)) {
-        $baseUrl = Swidly::getConfig('app::base_url') ?: $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
-    }
-
-    // Ensure base URL ends with a slash
-    $baseUrl = rtrim($baseUrl, '/') . '/';
-
     // Generate the route URL
     $routePath = Swidly::path($name);
 
@@ -1384,7 +1501,7 @@ function route(string $name, array $params = [], string $baseUrl = ''): string
         $routePath .= '?' . http_build_query($queryParams);
     }
 
-    return $baseUrl . ltrim($routePath, '/');
+    return rtrim($routePath, '/');
 }
 
 /**
@@ -1589,7 +1706,7 @@ function getPlaceDetails($placeId, $apiKey) {
     return $data['result'] ?? null;
 }
 
-function activeLink(?string $page = null): void {
+function activeLink(?string $page = null): string {
     $result = '';
     $request = Request::getInstance();
     
@@ -1599,7 +1716,7 @@ function activeLink(?string $page = null): void {
         $result = ' active';
     }
 
-    echo $result;
+    return $result;
 }
 
 function getGreetingOfDay($timestamp = null): string
