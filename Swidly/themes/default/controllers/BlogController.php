@@ -1,17 +1,11 @@
 <?php
 namespace Swidly\themes\default\controllers;
 
-use Swidly\Core\View;
-use Swidly\Core\Model;
-
 use Swidly\Core\Swidly;
 use Swidly\Core\Controller;
 use Swidly\Core\SwidlyException;
 use Swidly\Core\Attributes\Route;
-use Swidly\Middleware\CsrfMiddleware;
-use Swidly\Core\Attributes\Middleware;
 use Swidly\Core\Attributes\RouteGroup;
-use Swidly\Core\Factory\CommandFactory;
 use Swidly\Middleware\AuthMiddleware;
 use Swidly\Core\FlatDB; 
 

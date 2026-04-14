@@ -11,10 +11,15 @@ if (file_exists('../db.php')) {
     require_once '../db.php';
 } 
 
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME'], 2), '/\\');
+$base_url = $scheme . '://' . $host . $scriptDir . '/';
+
 return [
     'app' => [
         'title' => '',
-        'base_url' => '',
+        'base_url' => $base_url,
         'favicon' => '',
         'description' => '',
         'single_page' => false
@@ -26,8 +31,8 @@ return [
         'database' => $db_name,
         'username' => $db_user,
         'password' => $db_pass,
-        'charset' => 'utf8mb4',
-        'collation' => 'utf8mb4_unicode_ci',
+        'charset' => $db_charset,
+        'collation' => $db_collation,
         'prefix' => '',
     ],
     'url' => '',
